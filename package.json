@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit -p . && vite build",
     "preview": "vite preview",
+    "build:single": "tsc --noEmit -p . && vite build --mode single --outDir dist-single",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "balance": "BALANCE=1 vitest run tests/balance.test.ts --reporter=verbose"
@@ -32,6 +33,7 @@
     "@vitejs/plugin-react": "^6.2.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
+    "vite-plugin-singlefile": "^2.3.4",
     "vitest": "^5.1.0"
   }
 }
