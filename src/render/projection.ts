@@ -1,8 +1,8 @@
 import { geoGraticule10, geoInterpolate, geoNaturalEarth1, geoPath } from 'd3-geo';
 import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson';
-import { feature } from 'topojson-client';
+import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
-import landTopo from 'world-atlas/land-50m.json';
+import worldTopo from 'world-atlas/countries-50m.json';
 import { CITIES, CITY_BY_ID } from '../data/cities';
 
 /** Współrzędne „świata” — mapa jest rzutowana raz na prostokąt WORLD_W × WORLD_H, kamera tylko skaluje i przesuwa. */
@@ -28,15 +28,18 @@ function toPath2D(d: string | null): Path2D {
   return new Path2D(d ?? '');
 }
 
-let cachedPaths: { land: Path2D; sphere: Path2D; graticule: Path2D } | null = null;
+let cachedPaths: { land: Path2D; borders: Path2D; sphere: Path2D; graticule: Path2D } | null = null;
 
-/** Ścieżki tła (ląd, kula, siatka) — liczone raz. */
+/** Ścieżki tła (ląd, granice państw, kula, siatka) — liczone raz. */
 export function basePaths() {
   if (cachedPaths) return cachedPaths;
-  const topo = landTopo as unknown as Topology<{ land: GeometryCollection }>;
+  const topo = worldTopo as unknown as Topology<{ land: GeometryCollection; countries: GeometryCollection }>;
   const land = feature(topo, topo.objects.land) as unknown as FeatureCollection<Polygon | MultiPolygon>;
+  // Tylko granice wewnętrzne (między dwoma państwami) — linia brzegowa jest rysowana osobno.
+  const borders = mesh(topo, topo.objects.countries, (a, b) => a !== b);
   cachedPaths = {
     land: toPath2D(pathGen(land)),
+    borders: toPath2D(pathGen(borders)),
     sphere: toPath2D(pathGen({ type: 'Sphere' })),
     graticule: toPath2D(pathGen(geoGraticule10())),
   };

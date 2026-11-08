@@ -8,9 +8,9 @@ import { cityDistance } from '../engine/geo';
 import { waitingTotal } from '../engine/passengers';
 import type { GameState } from '../engine/types';
 import type { GameController } from '../game/controller';
-import { basePaths, CITY_XY, routeGeometry, WORLD_H, WORLD_W } from './projection';
-import { THEME } from './theme';
 import { moneyShort } from '../ui/format';
+import { basePaths, CITY_XY, routeGeometry, WORLD_H, WORLD_W } from './projection';
+import { NO_INSETS, PLAY_INSETS, THEME } from './theme';
 
 interface Camera {
   x: number;
@@ -24,9 +24,19 @@ type DragState =
   | { mode: 'route'; from: string; sx: number; sy: number; moved: boolean }
   | null;
 
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 12;
-const HIT_RADIUS = 13;
+const HIT_RADIUS = 12;
+const FONT = '"Inter Variable", Inter, system-ui, sans-serif';
 
 /**
  * Rysuje mapę na canvasie i obsługuje wejście (przesuwanie, zoom, zaznaczanie, rysowanie tras).
@@ -89,6 +99,10 @@ export class MapRenderer {
 
   // ---------- Kamera ----------
 
+  private get insets() {
+    return this.ctrl.state ? PLAY_INSETS : NO_INSETS;
+  }
+
   private resize(): void {
     const r = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -99,9 +113,13 @@ export class MapRenderer {
     if (this.autoFit) this.focusCities(this.autoFit, false, 5);
   }
 
+  private get baseScale(): number {
+    return Math.min(this.w / WORLD_W, this.h / WORLD_H);
+  }
+
   /** Skala px/jednostkę świata. */
   private get scale(): number {
-    return Math.min(this.w / WORLD_W, this.h / WORLD_H) * this.cam.k;
+    return this.baseScale * this.cam.k;
   }
 
   toScreen(x: number, y: number): [number, number] {
@@ -114,7 +132,7 @@ export class MapRenderer {
     return [(sx - this.w / 2) / s + this.cam.x, (sy - this.h / 2) / s + this.cam.y];
   }
 
-  /** Płynnie ustawia kamerę tak, by objąć podane miasta. */
+  /** Ustawia kamerę tak, by objąć podane miasta w widocznej (niezasłoniętej panelami) części mapy. */
   focusCities(ids: string[], animate = true, maxZoom = 6): void {
     if (!ids.length) return;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -122,31 +140,54 @@ export class MapRenderer {
       const [x, y] = CITY_XY[id];
       x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
     }
-    const pad = 40;
-    const base = Math.min(this.w / WORLD_W, this.h / WORLD_H);
-    const k = Math.max(MIN_ZOOM, Math.min(maxZoom, Math.min((this.w - 80) / ((x1 - x0 + pad) * base), (this.h - 140) / ((y1 - y0 + pad) * base))));
-    const target = { x: (x0 + x1) / 2, y: (y0 + y1) / 2, k };
+    const ins = this.insets;
+    const vw = Math.max(200, this.w - ins.left - ins.right - 60);
+    const vh = Math.max(200, this.h - ins.top - ins.bottom - 60);
+    const pad = 30;
+    const base = this.baseScale;
+    const k = Math.max(MIN_ZOOM, Math.min(maxZoom, vw / ((x1 - x0 + pad) * base), vh / ((y1 - y0 + pad) * base)));
+    const s = base * k;
+    // Środek widocznego obszaru względem środka canvasu.
+    const offX = (ins.left - ins.right) / 2;
+    const offY = (ins.top - ins.bottom) / 2;
+    const target = { x: (x0 + x1) / 2 - offX / s, y: (y0 + y1) / 2 - offY / s, k };
     if (animate) this.camTarget = target;
     else this.cam = this.clampCam(target);
   }
 
   private clampCam(c: Camera): Camera {
     const k = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, c.k));
-    const s = Math.min(this.w / WORLD_W, this.h / WORLD_H) * k;
+    const s = this.baseScale * k;
+    const ins = this.insets;
+    // Pozwalamy przesunąć mapę tak, by brzegi świata dało się zobaczyć obok paneli.
+    const extraL = ins.left / s;
+    const extraR = ins.right / s;
+    const extraT = ins.top / s;
+    const extraB = ins.bottom / s;
     const halfW = this.w / 2 / s;
     const halfH = this.h / 2 / s;
-    const clampAxis = (v: number, half: number, size: number) =>
-      half * 2 >= size ? size / 2 : Math.max(half, Math.min(size - half, v));
-    return { k, x: clampAxis(c.x, halfW, WORLD_W), y: clampAxis(c.y, halfH, WORLD_H) };
+    const clampAxis = (v: number, half: number, size: number, lo: number, hi: number) => {
+      const min = half - lo;
+      const max = size - half + hi;
+      return min > max ? (min + max) / 2 : Math.max(min, Math.min(max, v));
+    };
+    return {
+      k,
+      x: clampAxis(c.x, halfW, WORLD_W, extraL, extraR),
+      y: clampAxis(c.y, halfH, WORLD_H, extraT, extraB),
+    };
   }
 
-  zoomBy(factor: number, sx = this.w / 2, sy = this.h / 2): void {
+  zoomBy(factor: number, sx?: number, sy?: number): void {
     this.camTarget = null;
     this.autoFit = null;
-    const [wx, wy] = this.toWorld(sx, sy);
+    const ins = this.insets;
+    const cx = sx ?? (ins.left + this.w - ins.right) / 2;
+    const cy = sy ?? (ins.top + this.h - ins.bottom) / 2;
+    const [wx, wy] = this.toWorld(cx, cy);
     const k = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.cam.k * factor));
-    const s = Math.min(this.w / WORLD_W, this.h / WORLD_H) * k;
-    this.cam = this.clampCam({ k, x: wx - (sx - this.w / 2) / s, y: wy - (sy - this.h / 2) / s });
+    const s = this.baseScale * k;
+    this.cam = this.clampCam({ k, x: wx - (cx - this.w / 2) / s, y: wy - (cy - this.h / 2) / s });
   }
 
   // ---------- Trafienia ----------
@@ -305,10 +346,10 @@ export class MapRenderer {
     ctx.fillRect(0, 0, this.w, this.h);
     this.drawBase();
     if (!s) {
-      // Menu: dekoracyjne miasta w tle.
+      // Menu: dyskretne punkty miast w tle.
       for (const c of CITIES) {
         const [x, y] = this.toScreen(...CITY_XY[c.id]);
-        dot(ctx, x, y, 1.6, THEME.cityLocked);
+        dot(ctx, x, y, 1.8, THEME.cityLocked);
       }
       return;
     }
@@ -322,27 +363,29 @@ export class MapRenderer {
     this.drawPlanes(s, selectedRoute);
     this.drawCities(s, selectedCity, mods.closed, now);
     this.drawFloating(now);
+    this.drawPreviewPill(s);
   }
 
   private drawBase(): void {
     const ctx = this.ctx;
-    const { land, sphere, graticule } = basePaths();
+    const { land, borders, sphere, graticule } = basePaths();
     const sc = this.scale;
     ctx.save();
     ctx.setTransform(this.dpr * sc, 0, 0, this.dpr * sc, this.dpr * (this.w / 2 - this.cam.x * sc), this.dpr * (this.h / 2 - this.cam.y * sc));
     ctx.fillStyle = THEME.ocean;
     ctx.fill(sphere);
-    ctx.lineWidth = 0.6 / sc;
+    ctx.lineWidth = 0.7 / sc;
     ctx.strokeStyle = THEME.graticule;
     ctx.stroke(graticule);
     ctx.fillStyle = THEME.land;
     ctx.fill(land);
-    ctx.lineWidth = 0.8 / sc;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 0.7 / sc;
+    ctx.strokeStyle = THEME.borders;
+    ctx.stroke(borders);
+    ctx.lineWidth = 0.9 / sc;
     ctx.strokeStyle = THEME.coast;
     ctx.stroke(land);
-    ctx.lineWidth = 1 / sc;
-    ctx.strokeStyle = THEME.sphereEdge;
-    ctx.stroke(sphere);
     ctx.restore();
   }
 
@@ -364,22 +407,23 @@ export class MapRenderer {
     const planeCount: Record<string, number> = {};
     for (const p of Object.values(s.planes)) if (p.routeId) planeCount[p.routeId] = (planeCount[p.routeId] ?? 0) + 1;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     for (const r of Object.values(s.routes)) {
       const n = planeCount[r.id] ?? 0;
       const isSel = r.id === selected;
       const touches = selectedCity && (r.a === selectedCity || r.b === selectedCity);
       const hover = r.id === this.hoverRoute;
-      if (isSel) {
-        ctx.strokeStyle = THEME.routeGlow;
-        ctx.lineWidth = 8;
+      if (isSel || hover) {
         ctx.setLineDash([]);
+        ctx.strokeStyle = THEME.routeGlow;
+        ctx.lineWidth = 7;
         this.strokeRoute(r.a, r.b);
       }
-      ctx.lineWidth = (isSel ? 2.6 : 1.4) + Math.min(n, 6) * 0.35 + (hover ? 0.8 : 0);
+      ctx.lineWidth = isSel ? 2 : 1 + Math.min(n, 6) * 0.18;
       if (n === 0) {
-        ctx.setLineDash([5, 5]);
-        ctx.lineDashOffset = -now / 60;
-        ctx.strokeStyle = THEME.routeIdle;
+        ctx.setLineDash([3, 4]);
+        ctx.lineDashOffset = -now / 80;
+        ctx.strokeStyle = isSel ? THEME.routeActive : THEME.routeIdle;
       } else {
         ctx.setLineDash([]);
         ctx.strokeStyle = isSel || hover ? THEME.routeActive : touches ? THEME.routeTouch : THEME.route;
@@ -389,24 +433,30 @@ export class MapRenderer {
     ctx.setLineDash([]);
   }
 
-  private drawRoutePreview(s: GameState): void {
+  private previewInfo(s: GameState): { from: string; target: string | null; valid: boolean; label: string } | null {
     const from = this.drag?.mode === 'route' && this.drag.moved ? this.drag.from : this.ctrl.routeFrom;
-    if (!from || !this.pointer) return;
-    const ctx = this.ctx;
-    const [x0, y0] = this.toScreen(...CITY_XY[from]);
+    if (!from || !this.pointer) return null;
     const target = this.hoverCity && this.hoverCity !== from ? this.hoverCity : null;
-    let label = 'Wskaż lotnisko docelowe';
-    let valid = false;
-    if (target) {
-      const dist = cityDistance(from, target);
-      const err = s.airports[target] ? checkOpenRoute(s, from, target) : 'Brak lotniska w tym mieście';
-      valid = !err;
-      label = err ?? `${CITY_BY_ID[target].name} · ${dist.toLocaleString('pl-PL')} km · ${routeOpenCost(dist).toLocaleString('pl-PL')} $`;
-    }
-    ctx.strokeStyle = target ? (valid ? THEME.previewOk : THEME.previewBad) : THEME.preview;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    if (target) this.strokeRoute(from, target);
+    if (!target) return { from, target, valid: false, label: 'Wskaż lotnisko docelowe' };
+    const dist = cityDistance(from, target);
+    const err = s.airports[target] ? checkOpenRoute(s, from, target) : 'Brak lotniska w tym mieście';
+    return {
+      from,
+      target,
+      valid: !err,
+      label: err ?? `${CITY_BY_ID[target].name}  ·  ${dist.toLocaleString('pl-PL')} km  ·  ${routeOpenCost(dist).toLocaleString('pl-PL')} $`,
+    };
+  }
+
+  private drawRoutePreview(s: GameState): void {
+    const info = this.previewInfo(s);
+    if (!info || !this.pointer) return;
+    const ctx = this.ctx;
+    const [x0, y0] = this.toScreen(...CITY_XY[info.from]);
+    ctx.strokeStyle = info.target ? (info.valid ? THEME.previewOk : THEME.previewBad) : THEME.preview;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([5, 5]);
+    if (info.target) this.strokeRoute(info.from, info.target);
     else {
       ctx.beginPath();
       ctx.moveTo(x0, y0);
@@ -414,24 +464,38 @@ export class MapRenderer {
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    this.pill(this.pointer.x + 14, this.pointer.y + 18, label, target ? (valid ? THEME.previewOk : THEME.previewBad) : THEME.textDim);
+  }
+
+  private drawPreviewPill(s: GameState): void {
+    const info = this.previewInfo(s);
+    if (!info || !this.pointer) return;
+    const color = info.target ? (info.valid ? THEME.text : THEME.previewBad) : THEME.textDim;
+    this.pill(this.pointer.x + 16, this.pointer.y + 18, info.label, color);
   }
 
   private pill(x: number, y: number, text: string, color: string): void {
     const ctx = this.ctx;
-    ctx.font = '500 12px "Inter Variable", system-ui, sans-serif';
-    const w = ctx.measureText(text).width + 18;
-    const px = Math.min(x, this.w - w - 8);
+    ctx.font = `500 12px ${FONT}`;
+    const w = ctx.measureText(text).width + 22;
+    const h = 28;
+    const px = Math.min(x, this.w - w - 12);
+    const py = Math.min(y, this.h - h - 12);
+    ctx.save();
+    ctx.shadowColor = THEME.pillShadow;
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 4;
     ctx.fillStyle = THEME.pillBg;
-    roundRect(ctx, px, y, w, 24, 6);
+    roundRect(ctx, px, py, w, h, 8);
     ctx.fill();
+    ctx.restore();
     ctx.strokeStyle = THEME.pillBorder;
     ctx.lineWidth = 1;
+    roundRect(ctx, px + 0.5, py + 0.5, w - 1, h - 1, 8);
     ctx.stroke();
     ctx.fillStyle = color;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(text, px + 9, y + 12.5);
+    ctx.fillText(text, px + 11, py + h / 2 + 0.5);
   }
 
   private drawPlanes(s: GameState, selected: string | null): void {
@@ -446,24 +510,25 @@ export class MapRenderer {
       const [wx, wy] = g.at(t);
       const [ax, ay] = g.at(Math.max(0, Math.min(1, t + (forward ? 0.01 : -0.01))));
       const [x, y] = this.toScreen(wx, wy);
+      if (x < -20 || y < -20 || x > this.w + 20 || y > this.h + 20) continue;
       const [x2, y2] = this.toScreen(ax, ay);
       let ang = Math.atan2(y2 - y, x2 - x);
       if (Math.abs(x2 - x) > this.w / 3) ang = Math.atan2(y2 - y, -(x2 - x));
       const type = AIRCRAFT_BY_ID[p.typeId];
-      const size = 6 + Math.min(4, type.seats / 110);
+      const size = 5.5 + Math.min(2.5, type.seats / 160);
       planeGlyph(ctx, x, y, ang, size, p.routeId === selected ? THEME.planeSelected : THEME.plane);
     }
   }
 
   private drawCities(s: GameState, selected: string | null, closed: Set<string>, now: number): void {
     const ctx = this.ctx;
-    const zoomed = this.cam.k >= 2.6;
+    const k = this.cam.k;
     const labels: { x: number; y: number; text: string; strong: boolean; priority: number }[] = [];
     const eventCities = new Set(s.events.map((e) => e.targetId));
 
     for (const c of CITIES) {
       const [x, y] = this.toScreen(...CITY_XY[c.id]);
-      if (x < -40 || y < -40 || x > this.w + 40 || y > this.h + 40) continue;
+      if (x < -60 || y < -40 || x > this.w + 60 || y > this.h + 40) continue;
       const ap = s.airports[c.id];
       const unlocked = s.unlockedRegions.includes(c.region);
       const isHover = this.hoverCity === c.id;
@@ -471,81 +536,92 @@ export class MapRenderer {
 
       if (!ap) {
         if (!unlocked) {
-          dot(ctx, x, y, 1.8, THEME.cityLocked);
+          dot(ctx, x, y, 1.7, THEME.cityLocked);
           continue;
         }
-        const r = 3 + Math.min(2.5, Math.sqrt(c.pop) * 0.45);
+        const r = 2.6 + Math.min(1.6, Math.sqrt(c.pop) * 0.3);
+        if (isSel || isHover) ring(ctx, x, y, r + 5, THEME.selection, 1.25);
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = THEME.background;
+        ctx.fillStyle = THEME.cityAvailableFill;
         ctx.fill();
-        ctx.lineWidth = isHover || isSel ? 2 : 1.3;
+        ctx.lineWidth = 1.25;
         ctx.strokeStyle = isHover || isSel ? THEME.cityAvailableHover : THEME.cityAvailable;
         ctx.stroke();
-        if (isSel) ring(ctx, x, y, r + 5, THEME.selection, 1.5);
-        if (zoomed || isHover || isSel) labels.push({ x, y: y + r + 4, text: c.name, strong: false, priority: isHover || isSel ? 1000 : c.pop });
+        if (k >= 2.2 || isHover || isSel) {
+          labels.push({ x: x + r + 5, y, text: c.name, strong: false, priority: isHover || isSel ? 1000 : c.pop });
+        }
         continue;
       }
 
       const lvl = airportLevel(ap.level);
-      const r = 4.5 + ap.level * 1.1;
+      const r = 3.6 + ap.level * 0.6;
       const fill = waitingTotal(s, c.id) / lvl.capacity;
       const isHub = c.id === s.startCity;
+      const ringR = r + 4;
 
-      // Pierścień zapełnienia terminalu
-      ring(ctx, x, y, r + 4, THEME.ringTrack, 3);
+      // Zapełnienie terminalu — cienki łuk wokół punktu.
+      ring(ctx, x, y, ringR, THEME.ringTrack, 2);
       if (fill > 0.01) {
         const color = fill < 0.5 ? THEME.ok : fill < 0.8 ? THEME.warn : THEME.danger;
         ctx.beginPath();
-        ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fill));
+        ctx.arc(x, y, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fill));
         ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
         ctx.stroke();
         if (fill > 0.9) {
-          const pulse = (now % 1200) / 1200;
-          ring(ctx, x, y, r + 6 + pulse * 10, withAlpha(THEME.danger, 0.6 * (1 - pulse)), 2);
+          const pulse = (now % 1400) / 1400;
+          ring(ctx, x, y, ringR + 2 + pulse * 9, withAlpha(THEME.danger, 0.45 * (1 - pulse)), 1.5);
         }
       }
+      if (isSel || isHover || this.ctrl.routeFrom === c.id) ring(ctx, x, y, ringR + 4, THEME.selection, 1.25);
+
+      ctx.beginPath();
+      ctx.arc(x, y, r + 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = THEME.halo;
+      ctx.fill();
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = isHub ? THEME.hub : THEME.airport;
       ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = THEME.background;
-      ctx.stroke();
+
       if (closed.has(c.id)) {
-        ctx.strokeStyle = THEME.danger;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = THEME.halo;
+        ctx.lineWidth = 1.6;
+        ctx.lineCap = 'round';
+        const d = r * 0.5;
         ctx.beginPath();
-        ctx.moveTo(x - r * 0.6, y - r * 0.6);
-        ctx.lineTo(x + r * 0.6, y + r * 0.6);
-        ctx.moveTo(x + r * 0.6, y - r * 0.6);
-        ctx.lineTo(x - r * 0.6, y + r * 0.6);
+        ctx.moveTo(x - d, y - d);
+        ctx.lineTo(x + d, y + d);
+        ctx.moveTo(x + d, y - d);
+        ctx.lineTo(x - d, y + d);
         ctx.stroke();
+        ring(ctx, x, y, ringR, THEME.danger, 2);
       } else if (eventCities.has(c.id)) {
-        dot(ctx, x + r + 3, y - r - 3, 3, THEME.event);
+        dot(ctx, x + ringR * 0.72, y - ringR * 0.72, 2.6, THEME.event);
       }
-      if (isSel || isHover || this.ctrl.routeFrom === c.id) ring(ctx, x, y, r + 8, THEME.selection, 1.5);
       labels.push({
-        x,
-        y: y + r + 8,
-        text: zoomed ? c.name : c.code,
+        x: x + ringR + 5,
+        y,
+        text: c.name,
         strong: true,
         priority: (isSel || isHover ? 2000 : 100) + ap.level * 10 + c.pop,
       });
     }
 
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     labels.sort((p, q) => q.priority - p.priority);
     const placed: Rect[] = [];
     for (const l of labels) {
-      ctx.font = l.strong ? '600 11px "Inter Variable", system-ui, sans-serif' : '500 11px "Inter Variable", system-ui, sans-serif';
+      ctx.font = l.strong ? `600 11.5px ${FONT}` : `500 11px ${FONT}`;
       const w = ctx.measureText(l.text).width;
-      const rect: Rect = { x: l.x - w / 2 - 2, y: l.y - 1, w: w + 4, h: 14 };
+      const rect: Rect = { x: l.x - 2, y: l.y - 8, w: w + 4, h: 16 };
       if (placed.some((r) => overlaps(r, rect))) continue;
       placed.push(rect);
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
+      ctx.lineJoin = 'round';
       ctx.strokeStyle = THEME.labelHalo;
       ctx.strokeText(l.text, l.x, l.y);
       ctx.fillStyle = l.strong ? THEME.text : THEME.textDim;
@@ -554,10 +630,12 @@ export class MapRenderer {
   }
 
   private drawFloating(now: number): void {
+    // Przy oddalonym widoku napisy z przychodami zaśmiecałyby mapę.
+    if (this.cam.k < 2.5) return;
     const ctx = this.ctx;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.font = '600 11px "Inter Variable", system-ui, sans-serif';
+    ctx.font = `600 10.5px ${FONT}`;
     const placed: Rect[] = [];
     // Najnowsze napisy mają pierwszeństwo; nachodzące na siebie starsze są pomijane.
     for (let i = this.ctrl.floating.length - 1; i >= 0; i--) {
@@ -566,9 +644,9 @@ export class MapRenderer {
       if (age < 0 || age > 1) continue;
       const [x, y] = this.toScreen(...CITY_XY[f.cityId]);
       const text = `+${moneyShort(f.amount)}`;
-      const yy = y - 16 - age * 22;
+      const yy = y - 14 - age * 18;
       const w = ctx.measureText(text).width;
-      const rect: Rect = { x: x - w / 2 - 2, y: yy - 13, w: w + 4, h: 14 };
+      const rect: Rect = { x: x - w / 2 - 2, y: yy - 12, w: w + 4, h: 13 };
       if (placed.some((r) => overlaps(r, rect))) continue;
       placed.push(rect);
       ctx.globalAlpha = 1 - age * age;
@@ -581,15 +659,6 @@ export class MapRenderer {
     ctx.globalAlpha = 1;
   }
 }
-
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 // ---------- Pomocnicze funkcje rysujące ----------
 
@@ -618,33 +687,36 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-/** Minimalistyczna sylwetka samolotu skierowana wzdłuż kąta `ang`. */
+/** Minimalistyczna sylwetka samolotu (widok z góry) skierowana wzdłuż kąta `ang`. */
 function planeGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number, size: number, color: string): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(ang);
   const s = size;
   ctx.beginPath();
-  ctx.moveTo(s, 0);
-  ctx.lineTo(s * 0.2, s * 0.16);
-  ctx.lineTo(-s * 0.15, s * 0.85);
-  ctx.lineTo(-s * 0.38, s * 0.85);
-  ctx.lineTo(-s * 0.2, s * 0.16);
-  ctx.lineTo(-s * 0.7, s * 0.14);
-  ctx.lineTo(-s * 0.9, s * 0.42);
-  ctx.lineTo(-s * 1.02, s * 0.42);
-  ctx.lineTo(-s * 0.9, 0);
-  ctx.lineTo(-s * 1.02, -s * 0.42);
-  ctx.lineTo(-s * 0.9, -s * 0.42);
-  ctx.lineTo(-s * 0.7, -s * 0.14);
-  ctx.lineTo(-s * 0.2, -s * 0.16);
-  ctx.lineTo(-s * 0.38, -s * 0.85);
-  ctx.lineTo(-s * 0.15, -s * 0.85);
-  ctx.lineTo(s * 0.2, -s * 0.16);
+  ctx.moveTo(s * 1.05, 0);
+  ctx.quadraticCurveTo(s * 0.85, s * 0.13, s * 0.45, s * 0.14);
+  ctx.lineTo(-s * 0.05, s * 0.95);
+  ctx.lineTo(-s * 0.3, s * 0.95);
+  ctx.lineTo(-s * 0.1, s * 0.14);
+  ctx.lineTo(-s * 0.62, s * 0.12);
+  ctx.lineTo(-s * 0.82, s * 0.42);
+  ctx.lineTo(-s * 0.98, s * 0.42);
+  ctx.lineTo(-s * 0.86, 0);
+  ctx.lineTo(-s * 0.98, -s * 0.42);
+  ctx.lineTo(-s * 0.82, -s * 0.42);
+  ctx.lineTo(-s * 0.62, -s * 0.12);
+  ctx.lineTo(-s * 0.1, -s * 0.14);
+  ctx.lineTo(-s * 0.3, -s * 0.95);
+  ctx.lineTo(-s * 0.05, -s * 0.95);
+  ctx.lineTo(s * 0.45, -s * 0.14);
+  ctx.quadraticCurveTo(s * 0.85, -s * 0.13, s * 1.05, 0);
   ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = THEME.planeOutline;
+  ctx.stroke();
   ctx.fillStyle = color;
-  ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 4;
   ctx.fill();
   ctx.restore();
 }

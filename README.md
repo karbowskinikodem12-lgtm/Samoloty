@@ -43,6 +43,10 @@ Sterowanie: `Spacja` — pauza, `1` `2` `3` — prędkość, `Esc` — anuluj/za
 - **d3-geo + topojson-client + world-atlas** — rzut Natural Earth i kontury lądów,
 - **lucide-react** — ikony (w grze nie ma emoji), **Inter** — krój pisma.
 
+### Wygląd
+
+Jasna, stonowana mapa z delikatnymi granicami państw jest głównym ekranem. Interfejs to pływające, zaokrąglone panele z subtelnymi cieniami: górny pasek (środki, samoloty, obsługiwane miasta, pasażerowie, poziom, reputacja, czas) i panel boczny (zakup samolotów, trasy, zarządzanie lotniskami, regiony). Paleta jest celowo ograniczona: atrament dla elementów gracza, jeden niebieski akcent dla zaznaczeń i kolory statusu tylko tam, gdzie niosą informację (zapełnienie terminali, zysk/strata). Tokeny kolorów: `src/styles/tokens.css` (HTML) i `src/render/theme.ts` (mapa).
+
 ## Architektura
 
 ```
