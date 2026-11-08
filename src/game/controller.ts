@@ -3,7 +3,7 @@ import { saveGame } from '../engine/save';
 import { advance } from '../engine/simulation';
 import type { ActionResult, GameState, LogEntry } from '../engine/types';
 import { emptySink } from '../engine/util';
-import { applyTheme, loadThemeMode, nightFactor, saveThemeMode, type ThemeMode } from '../theme/dayNight';
+import { applyTheme, loadThemeMode, nightFactor, saveThemeMode, SWAP_POINT, type ThemeMode } from '../theme/dayNight';
 
 export type Selection =
   | { kind: 'city'; id: string }
@@ -42,8 +42,10 @@ export class GameController {
   focusRequest: string[] | null = null;
   /** Tryb motywu: automatyczny (cykl dnia i nocy) albo stały. */
   themeMode: ThemeMode = loadThemeMode();
-  /** Bieżąca „noc” 0..1 — płynnie dąży do wartości wynikającej z pory dnia lub trybu. */
+  /** Postęp nocy 0..1 — płynnie dąży do wartości wynikającej z pory dnia lub trybu. */
   night = 0;
+  /** Zamiana jasnego motywu na ciemny (0..1), animowana w czasie rzeczywistym. */
+  themeSwap = 0;
   version = 0;
 
   private listeners = new Set<() => void>();
@@ -232,11 +234,15 @@ export class GameController {
     this.toasts = this.toasts.filter((t) => t.expires > now);
     if (this.toasts.length !== toastsBefore) changed = true;
 
-    // Płynne przejście motywu (stała czasowa ok. 0,6 s), także przy ręcznej zmianie trybu.
+    // Postęp nocy podąża za zegarem gry (wygładzony, by ręczna zmiana trybu też była płynna).
     const target = this.nightTarget;
-    this.night += (target - this.night) * Math.min(1, dtReal * 1.7);
-    if (Math.abs(target - this.night) < 0.002) this.night = target;
-    applyTheme(this.night);
+    this.night += (target - this.night) * Math.min(1, dtReal * 1.2);
+    if (Math.abs(target - this.night) < 0.001) this.night = target;
+    // Zamiana jasny ↔ ciemny trwa ok. 1,2 s czasu rzeczywistego, niezależnie od prędkości i pauzy.
+    const swapTarget = this.night >= SWAP_POINT ? 1 : 0;
+    const step = dtReal / 1.2;
+    this.themeSwap = swapTarget > this.themeSwap ? Math.min(swapTarget, this.themeSwap + step) : Math.max(swapTarget, this.themeSwap - step);
+    applyTheme(this.night, this.themeSwap);
 
     for (const hook of this.frameHooks) hook(now);
 

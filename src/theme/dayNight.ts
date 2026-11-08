@@ -1,28 +1,42 @@
 import { MIN_PER_DAY } from '../engine/config';
-import { MAP_DAY, MAP_NIGHT, THEME, type MapPalette } from '../render/theme';
-import { CSS_DAY, CSS_NIGHT } from './cssPalette';
+import { MAP_DAY, MAP_DUSK, MAP_EVENING, MAP_NIGHT, THEME, type MapPalette } from '../render/theme';
+import { CSS_DAY, CSS_DUSK, CSS_EVENING, CSS_NIGHT } from './cssPalette';
 
 /**
- * Cykl dnia i nocy. Pora dnia w grze wyznacza „noc” 0..1: dzień 0, noc 1, z płynnym
- * zmierzchem i świtem. Wartość miesza palety mapy i interfejsu.
+ * Cykl dnia i nocy.
+ *
+ * Problem prostego mieszania: gdy tło i tekst zmieniają kolor jednocześnie, w połowie przejścia
+ * oba są szare i nic nie widać. Dlatego przejście ma dwie warstwy:
+ *
+ * 1. „Postęp nocy” p (0..1) wynika z zegara gry i zmienia się powoli przez kilka godzin gry.
+ *    Do p = 0,5 obowiązuje jasny motyw, którego tło stopniowo przygasa (dzień → zmierzch);
+ *    od p = 0,5 ciemny motyw, który stopniowo się pogłębia (wczesna noc → noc).
+ *    W obu połowach tekst ma pełny kontrast z tłem.
+ * 2. Zamiana jasnego motywu na ciemny („swap”) odbywa się w czasie rzeczywistym w ok. 1,2 s,
+ *    niezależnie od prędkości gry i pauzy — nigdy nie zatrzymuje się w nieczytelnym punkcie.
  */
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
 
-/** Godziny przejść (w minutach doby). */
-const DUSK_START = 18 * 60 + 30;
-const DUSK_END = 20 * 60;
-const DAWN_START = 5 * 60 + 30;
-const DAWN_END = 7 * 60;
+/** Godziny przejść (w minutach doby). Zmierzch 5 h, świt 4 h czasu gry. */
+const DUSK_START = 16 * 60 + 30;
+const DUSK_END = 21 * 60 + 30;
+const DAWN_START = 3 * 60 + 30;
+const DAWN_END = 7 * 60 + 30;
+
+/** Punkt, w którym jasny motyw zamienia się w ciemny. */
+export const SWAP_POINT = 0.5;
 
 const smooth = (x: number) => {
   const t = Math.max(0, Math.min(1, x));
   return t * t * (3 - 2 * t);
 };
 
-/** 0 = pełny dzień, 1 = pełna noc. */
+const minuteOfDay = (time: number) => ((time % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY;
+
+/** Postęp nocy: 0 = pełny dzień, 1 = pełna noc, wartości pośrednie podczas zmierzchu i świtu. */
 export function nightFactor(time: number): number {
-  const m = ((time % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY;
+  const m = minuteOfDay(time);
   if (m >= DAWN_END && m < DUSK_START) return 0;
   if (m >= DUSK_START && m < DUSK_END) return smooth((m - DUSK_START) / (DUSK_END - DUSK_START));
   if (m >= DAWN_START && m < DAWN_END) return 1 - smooth((m - DAWN_START) / (DAWN_END - DAWN_START));
@@ -32,7 +46,7 @@ export function nightFactor(time: number): number {
 export type DayPhase = 'day' | 'dusk' | 'night' | 'dawn';
 
 export function dayPhase(time: number): DayPhase {
-  const m = ((time % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY;
+  const m = minuteOfDay(time);
   if (m >= DAWN_END && m < DUSK_START) return 'day';
   if (m >= DUSK_START && m < DUSK_END) return 'dusk';
   if (m >= DAWN_START && m < DAWN_END) return 'dawn';
@@ -61,26 +75,46 @@ function mix(a: RGBA, b: RGBA, t: number): RGBA {
 
 const css = (c: RGBA) => `rgba(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}, ${c[3].toFixed(3)})`;
 
-const mapKeys = Object.keys(MAP_DAY) as (keyof MapPalette)[];
-const mapPairs = mapKeys.map((k) => [k, parse(MAP_DAY[k]), parse(MAP_NIGHT[k])] as const);
-const cssPairs = Object.keys(CSS_DAY).map((k) => [k, parse(CSS_DAY[k]), parse(CSS_NIGHT[k])] as const);
+/** Cztery etapy palety: dzień, zmierzch (jasny), wczesna noc (ciemny), noc. */
+type Stages = [RGBA, RGBA, RGBA, RGBA];
 
-let applied = -1;
+const mapStages: [keyof MapPalette, Stages][] = (Object.keys(MAP_DAY) as (keyof MapPalette)[]).map((k) => [
+  k,
+  [parse(MAP_DAY[k]), parse(MAP_DUSK[k]), parse(MAP_EVENING[k]), parse(MAP_NIGHT[k])],
+]);
+const cssStages: [string, Stages][] = Object.keys(CSS_DAY).map((k) => [
+  k,
+  [parse(CSS_DAY[k]), parse(CSS_DUSK[k]), parse(CSS_EVENING[k]), parse(CSS_NIGHT[k])],
+]);
 
-/** Ustawia kolory mapy i interfejsu dla danej wartości „nocy” (0..1). */
-export function applyTheme(t: number): void {
-  const v = Math.round(Math.max(0, Math.min(1, t)) * 400) / 400;
-  if (v === applied) return;
-  applied = v;
-  for (const [k, a, b] of mapPairs) THEME[k] = css(mix(a, b, v));
+/** Kolor dla postępu nocy `p` i stanu zamiany motywu `swap` (0 = jasny, 1 = ciemny). */
+function blend(st: Stages, p: number, swap: number): RGBA {
+  const light = mix(st[0], st[1], Math.min(1, p / SWAP_POINT));
+  const dark = mix(st[2], st[3], Math.max(0, (p - SWAP_POINT) / (1 - SWAP_POINT)));
+  if (swap <= 0) return light;
+  if (swap >= 1) return dark;
+  return mix(light, dark, smooth(swap));
+}
+
+let appliedKey = '';
+
+/** Ustawia kolory mapy i interfejsu. */
+export function applyTheme(p: number, swap: number): void {
+  const pv = Math.round(Math.max(0, Math.min(1, p)) * 500) / 500;
+  const sv = Math.round(Math.max(0, Math.min(1, swap)) * 200) / 200;
+  const key = `${pv}|${sv}`;
+  if (key === appliedKey) return;
+  appliedKey = key;
+  for (const [k, st] of mapStages) THEME[k] = css(blend(st, pv, sv));
   if (typeof document === 'undefined') return;
   const root = document.documentElement.style;
-  for (const [k, a, b] of cssPairs) {
-    const c = mix(a, b, v);
+  for (const [k, st] of cssStages) {
+    const c = blend(st, pv, sv);
     root.setProperty(k, k === '--shadow-rgb' ? `${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}` : css(c));
   }
-  root.setProperty('color-scheme', v > 0.5 ? 'dark' : 'light');
-  document.documentElement.dataset.theme = v > 0.5 ? 'dark' : 'light';
+  const dark = sv > 0.5;
+  root.setProperty('color-scheme', dark ? 'dark' : 'light');
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 }
 
 /** Kolor z dodaną przezroczystością (działa dla #hex i rgba()). */

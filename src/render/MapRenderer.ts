@@ -527,7 +527,7 @@ export class MapRenderer {
     const k = this.cam.k;
     const labels: { x: number; y: number; text: string; strong: boolean; priority: number }[] = [];
     const eventCities = new Set(s.events.map((e) => e.targetId));
-    const night = this.ctrl.night > 0.05;
+    const night = this.ctrl.night > 0.02;
 
     for (const c of CITIES) {
       const [x, y] = this.toScreen(...CITY_XY[c.id]);

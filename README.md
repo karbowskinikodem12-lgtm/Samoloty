@@ -53,7 +53,7 @@ Porty przesiadkowe (`hub`, np. Dubaj, Frankfurt, Singapur) startują o poziom wy
 
 ### Dzień i noc
 
-Pora dnia w grze płynnie miesza dwie palety: jasną (dzień) i ciemną (noc), zarówno na mapie, jak i w całym interfejsie. Zmierzch trwa od 18:30 do 20:00, świt od 5:30 do 7:00; nocą lotniska delikatnie świecą. W menu można wybrać tryb „Pora dnia” (domyślny), stały jasny albo stały ciemny. Palety: `src/render/theme.ts` (mapa) i `src/theme/cssPalette.ts` (interfejs), mieszanie: `src/theme/dayNight.ts`.
+Pora dnia w grze zmienia wygląd mapy i całego interfejsu. Zmierzch trwa od 16:30 do 21:30, świt od 3:30 do 7:30 czasu gry. Przez pierwszą połowę wieczoru jasny motyw powoli przygasa (tekst pozostaje ciemny i czytelny), potem w ok. 1,2 s czasu rzeczywistego zamienia się w ciemny, który dalej stopniowo się pogłębia — dzięki temu nie ma momentu, w którym tło i tekst zlewają się w jedną szarość. Nocą lotniska delikatnie świecą. W menu można wybrać tryb „Pora dnia” (domyślny), stały jasny albo stały ciemny. Palety: `src/render/theme.ts` (mapa) i `src/theme/cssPalette.ts` (interfejs), mieszanie: `src/theme/dayNight.ts`.
 
 ## Stack
 

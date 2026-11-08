@@ -101,6 +101,40 @@ export const MAP_NIGHT: MapPalette = {
   pillShadow: 'rgba(0, 0, 0, 0.4)',
 };
 
+/**
+ * Zmierzch: wciąż jasny motyw (ciemny tekst), ale z przygaszonym, chłodniejszym tłem.
+ * Dzięki temu długi wieczór pozostaje w pełni czytelny.
+ */
+export const MAP_DUSK: MapPalette = {
+  ...MAP_DAY,
+  background: '#aeb9c8',
+  ocean: '#aeb9c8',
+  land: '#d0d8e2',
+  coast: 'rgba(71, 85, 105, 0.32)',
+  borders: 'rgba(71, 85, 105, 0.22)',
+  graticule: 'rgba(71, 85, 105, 0.07)',
+  cityAvailableFill: '#e4e9ef',
+  halo: '#dde3ea',
+  labelHalo: 'rgba(208, 216, 226, 0.95)',
+  pillBg: '#f4f6f9',
+  glow: 'rgba(255, 214, 150, 0.06)',
+};
+
+/** Wczesna noc: ciemny motyw (jasny tekst) z lżejszym tłem, które dalej stopniowo ciemnieje. */
+export const MAP_EVENING: MapPalette = {
+  ...MAP_NIGHT,
+  background: '#243046',
+  ocean: '#243046',
+  land: '#323e55',
+  coast: 'rgba(148, 163, 184, 0.24)',
+  borders: 'rgba(148, 163, 184, 0.14)',
+  cityAvailableFill: '#323e55',
+  halo: '#323e55',
+  labelHalo: 'rgba(36, 48, 70, 0.92)',
+  pillBg: '#1e2735',
+  glow: 'rgba(255, 214, 150, 0.10)',
+};
+
 /** Bieżące kolory mapy (mieszanka dnia i nocy), aktualizowane przez theme/dayNight.ts. */
 export const THEME: MapPalette = { ...MAP_DAY };
 
