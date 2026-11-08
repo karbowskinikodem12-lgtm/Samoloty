@@ -55,3 +55,19 @@ export function plural(n: number, one: string, few: string, many: string): strin
   if (d >= 2 && d <= 4 && (t < 12 || t > 14)) return few;
   return many;
 }
+
+/** Pozostały czas w zwięzłej formie: „2 d 5 h”, „5 h 20 min”, „12 min”. */
+export function timeLeft(minutes: number): string {
+  const m = Math.max(0, Math.ceil(minutes));
+  if (m >= MIN_PER_DAY) {
+    const d = Math.floor(m / MIN_PER_DAY);
+    const h = Math.floor((m % MIN_PER_DAY) / 60);
+    return h > 0 ? `${d} d ${h} h` : `${d} d`;
+  }
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return mm > 0 ? `${h} h ${mm} min` : `${h} h`;
+  }
+  return `${m} min`;
+}

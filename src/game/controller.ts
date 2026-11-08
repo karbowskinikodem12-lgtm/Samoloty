@@ -3,6 +3,7 @@ import { saveGame } from '../engine/save';
 import { advance } from '../engine/simulation';
 import type { ActionResult, GameState, LogEntry } from '../engine/types';
 import { emptySink } from '../engine/util';
+import { applyTheme, loadThemeMode, nightFactor, saveThemeMode, type ThemeMode } from '../theme/dayNight';
 
 export type Selection =
   | { kind: 'city'; id: string }
@@ -39,6 +40,10 @@ export class GameController {
   menuOpen = false;
   /** Prośba o ustawienie kamery na podanych miastach (konsumowana przez renderer mapy). */
   focusRequest: string[] | null = null;
+  /** Tryb motywu: automatyczny (cykl dnia i nocy) albo stały. */
+  themeMode: ThemeMode = loadThemeMode();
+  /** Bieżąca „noc” 0..1 — płynnie dąży do wartości wynikającej z pory dnia lub trybu. */
+  night = 0;
   version = 0;
 
   private listeners = new Set<() => void>();
@@ -147,6 +152,19 @@ export class GameController {
     this.notify();
   }
 
+  setThemeMode(mode: ThemeMode): void {
+    this.themeMode = mode;
+    saveThemeMode(mode);
+    this.notify();
+  }
+
+  /** Docelowa wartość „nocy” dla bieżącego stanu i trybu. */
+  get nightTarget(): number {
+    if (this.themeMode === 'light') return 0;
+    if (this.themeMode === 'dark') return 1;
+    return this.state ? nightFactor(this.state.time) : 0;
+  }
+
   setMenu(open: boolean): void {
     this.menuOpen = open;
     this.notify();
@@ -213,6 +231,12 @@ export class GameController {
     const toastsBefore = this.toasts.length;
     this.toasts = this.toasts.filter((t) => t.expires > now);
     if (this.toasts.length !== toastsBefore) changed = true;
+
+    // Płynne przejście motywu (stała czasowa ok. 0,6 s), także przy ręcznej zmianie trybu.
+    const target = this.nightTarget;
+    this.night += (target - this.night) * Math.min(1, dtReal * 1.7);
+    if (Math.abs(target - this.night) < 0.002) this.night = target;
+    applyTheme(this.night);
 
     for (const hook of this.frameHooks) hook(now);
 

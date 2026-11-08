@@ -2,6 +2,7 @@ import { AIRCRAFT_BY_ID } from '../data/aircraft';
 import { airportLevel } from '../data/airportLevels';
 import { CITY_BY_ID } from '../data/cities';
 import { CONFIG } from './config';
+import { startLevel } from './cities';
 import type { AircraftDef, GameState } from './types';
 import { dayOf } from './util';
 
@@ -22,7 +23,12 @@ export function flightMinutes(type: AircraftDef, distance: number): number {
 const round5k = (v: number) => Math.round(v / 5000) * 5000;
 
 export function airportOpenCost(cityId: string): number {
-  return round5k(CONFIG.AIRPORT_BASE_COST + CONFIG.AIRPORT_COST_PER_MLN * CITY_BY_ID[cityId].pop);
+  const c = CITY_BY_ID[cityId];
+  return round5k(
+    CONFIG.AIRPORT_BASE_COST +
+      CONFIG.AIRPORT_COST_PER_MLN * c.pop ** CONFIG.AIRPORT_COST_EXP +
+      CONFIG.AIRPORT_START_LEVEL_PREMIUM * (startLevel(c) - 1),
+  );
 }
 
 export function routeOpenCost(distance: number): number {
@@ -50,7 +56,7 @@ export function dailyFixedCosts(s: GameState): { planes: number; airports: numbe
   let planes = 0;
   for (const p of Object.values(s.planes)) planes += AIRCRAFT_BY_ID[p.typeId].upkeep;
   let airports = 0;
-  for (const a of Object.values(s.airports)) airports += airportLevel(a.level).upkeep;
+  for (const a of Object.values(s.airports)) if (a.buildEnd === undefined) airports += airportLevel(a.level).upkeep;
   return { planes, airports };
 }
 

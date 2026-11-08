@@ -3,8 +3,10 @@ import { CITIES, CITY_BY_ID, START_CITIES } from '../src/data/cities';
 import { EVENTS } from '../src/data/events';
 import { REGIONS } from '../src/data/regions';
 import {
-  assignPlane, buyPlane, checkOpenRoute, closeRoute, openAirport, openRoute, sellPlane, unassignPlane, upgradeAirport,
+  assignPlane, buyPlane, checkOpenRoute, checkUpgradeAirport, closeRoute, openAirport, openRoute, sellPlane, unassignPlane, upgradeAirport,
 } from '../src/engine/actions';
+import { buildMinutes, cityTier, maxLevel, startLevel } from '../src/engine/cities';
+import { finishConstruction, openAirportNow } from './helpers';
 import { CONFIG, MIN_PER_DAY } from '../src/engine/config';
 import { getModifiers, triggerRandomEvent } from '../src/engine/events';
 import { cityDistance } from '../src/engine/geo';
@@ -15,7 +17,7 @@ import { emptySink } from '../src/engine/util';
 
 function basicGame() {
   const s = newGame('warsaw', 42);
-  expect(openAirport(s, 'berlin').ok).toBe(true);
+  expect(openAirportNow(s, 'berlin').ok).toBe(true);
   const r = openRoute(s, 'warsaw', 'berlin');
   expect(r.ok).toBe(true);
   const plane = Object.values(s.planes)[0];
@@ -49,11 +51,41 @@ describe('akcje', () => {
 
   it('trasa bez samolotu nie generuje pasażerów', () => {
     const s = newGame('warsaw', 3);
-    openAirport(s, 'berlin');
+    openAirportNow(s, 'berlin');
     openRoute(s, 'warsaw', 'berlin');
     advance(s, MIN_PER_DAY);
     expect(s.airports.warsaw.yesterday.spawned).toBe(0);
     expect(s.totals.lost).toBe(0);
+  });
+
+  it('budowa lotniska trwa kilka dni i blokuje trasy do jej zakończenia', () => {
+    const s = newGame('warsaw', 5);
+    expect(openAirport(s, 'berlin').ok).toBe(true);
+    const ap = s.airports.berlin;
+    expect(ap.buildEnd).toBeGreaterThan(s.time + MIN_PER_DAY);
+    expect(checkOpenRoute(s, 'warsaw', 'berlin')).toMatch(/budowie/);
+    expect(checkUpgradeAirport(s, 'berlin')).toMatch(/budowie/);
+    advance(s, buildMinutes(CITY_BY_ID.berlin) + 10);
+    expect(ap.buildEnd).toBeUndefined();
+    expect(s.log.some((l) => l.title.includes('Berlin otwarte'))).toBe(true);
+    expect(openRoute(s, 'warsaw', 'berlin').ok).toBe(true);
+  });
+
+  it('wielkość miasta określa infrastrukturę lotniska', () => {
+    expect(cityTier(CITY_BY_ID.tokyo)).toBe(4);
+    expect(cityTier(CITY_BY_ID.queenstown)).toBe(1);
+    expect(cityTier(CITY_BY_ID.dubai)).toBe(3); // hub
+    expect(startLevel(CITY_BY_ID.tokyo)).toBe(3);
+    expect(startLevel(CITY_BY_ID.krakow)).toBe(1);
+    expect(maxLevel(CITY_BY_ID.queenstown)).toBe(2);
+    expect(maxLevel(CITY_BY_ID.dubai)).toBe(5);
+    // Małe lotnisko nie da się rozbudować ponad swój limit.
+    const s = newGame('warsaw', 2);
+    s.money = 50_000_000;
+    openAirportNow(s, 'rzeszow');
+    expect(upgradeAirport(s, 'rzeszow').ok).toBe(true);
+    expect(checkUpgradeAirport(s, 'rzeszow')).toMatch(/najwyższy/);
+    expect(s.airports.rzeszow.level).toBe(maxLevel(CITY_BY_ID.rzeszow));
   });
 
   it('nie pozwala otworzyć lotniska w zablokowanym regionie', () => {
@@ -66,6 +98,7 @@ describe('akcje', () => {
     const s = newGame('warsaw', 1);
     s.money = 10_000_000;
     for (const c of ['berlin', 'prague', 'vienna']) openAirport(s, c);
+    finishConstruction(s);
     expect(openRoute(s, 'warsaw', 'berlin').ok).toBe(true);
     expect(openRoute(s, 'warsaw', 'prague').ok).toBe(true);
     expect(checkOpenRoute(s, 'warsaw', 'vienna')).toMatch(/slot/);
@@ -76,7 +109,7 @@ describe('akcje', () => {
   it('zasięg samolotu ogranicza przypisanie', () => {
     const s = newGame('madrid', 1);
     s.money = 10_000_000;
-    openAirport(s, 'helsinki');
+    openAirportNow(s, 'helsinki');
     const r = openRoute(s, 'madrid', 'helsinki');
     expect(r.ok).toBe(true);
     const plane = Object.values(s.planes)[0];
@@ -118,6 +151,7 @@ describe('symulacja', () => {
     s.money = 10_000_000;
     openAirport(s, 'berlin');
     openAirport(s, 'prague');
+    finishConstruction(s);
     const r1 = openRoute(s, 'warsaw', 'berlin');
     const r2 = openRoute(s, 'berlin', 'prague');
     // Trasy bez samolotów nie tworzą sieci.
@@ -157,7 +191,7 @@ describe('symulacja', () => {
       s.level = 5;
       s.totals.flights = 100;
       for (let i = 0; i < 3; i++) buyPlane(s, 't70');
-      openAirport(s, 'prague');
+      openAirportNow(s, 'prague');
       const sink = emptySink();
       triggerRandomEvent(s, sink, ev.id);
       expect(sink.notices.length, ev.id).toBe(1);

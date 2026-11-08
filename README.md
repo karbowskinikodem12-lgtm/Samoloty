@@ -1,6 +1,6 @@
 # Contrail — gra o zarządzaniu linią lotniczą
 
-Przeglądarkowa gra strategiczna (desktop). Zaczynasz z jednym lotniskiem, jednym samolotem i niewielkim budżetem, a potem rozbudowujesz sieć połączeń: otwierasz kolejne lotniska, rysujesz trasy, kupujesz samoloty, rozbudowujesz terminale i odblokowujesz nowe regiony świata.
+Przeglądarkowa gra strategiczna (desktop). Zaczynasz z jednym lotniskiem, jednym samolotem i niewielkim budżetem, a potem rozbudowujesz sieć połączeń: budujesz kolejne lotniska, rysujesz trasy, kupujesz samoloty, rozbudowujesz terminale i odblokowujesz nowe regiony świata. Na mapie jest 281 miast — od lokalnych lotnisk po największe metropolie i porty przesiadkowe — a zegar gry wyznacza płynny cykl dnia i nocy.
 
 ## Uruchomienie
 
@@ -8,6 +8,7 @@ Przeglądarkowa gra strategiczna (desktop). Zaczynasz z jednym lotniskiem, jedny
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # wersja produkcyjna w dist/ (podgląd: npm run preview)
+npm run build:single  # cała gra w jednym pliku dist-single/index.html (otwierany dwuklikiem)
 npm test           # testy silnika (vitest)
 npm run balance    # raport balansu: bot gra 40 dni z każdego miasta startowego → balance-report.txt
 ```
@@ -16,7 +17,7 @@ Gra działa w całości lokalnie, bez serwera. Postęp zapisuje się automatyczn
 
 ## Jak grać
 
-1. **Otwórz drugie lotnisko** — kliknij miasto z pustym pierścieniem i wybierz „Otwórz lotnisko”.
+1. **Zbuduj drugie lotnisko** — kliknij miasto z pustym kółkiem i wybierz „Zbuduj lotnisko”. Budowa trwa kilka dni gry; postęp i czas do otwarcia widać na mapie i w panelu miasta.
 2. **Narysuj trasę** — przytrzymaj lotnisko i przeciągnij linię do innego lotniska (albo użyj przycisku „Nowa trasa”).
 3. **Przypisz samolot** — kliknij trasę i przypisz maszynę z hangaru lub kup nową.
 4. Samoloty kursują same tam i z powrotem. Każde lotnisko z obsługiwanymi trasami generuje pasażerów do wszystkich osiągalnych miast. Pasażerowie przesiadają się w węzłach, więc dobrze połączone lotniska stają się hubami.
@@ -35,6 +36,24 @@ Sterowanie: `Spacja` — pauza, `1` `2` `3` — prędkość, `Esc` — anuluj/za
 | Popyt | √populacji × poziom lotniska × reputacja × efekt sieci × wzrost rynku × wydarzenia |
 | Reputacja | dąży do wartości wynikającej z odsetka obsłużonych vs. rezygnujących pasażerów |
 | Bankructwo | 3 dni z rzędu z ujemnym saldem |
+| Budowa lotniska | ok. 1,5–3,5 dnia gry, dłużej w większych miastach |
+
+### Miasta
+
+Każde miasto ma kategorię wyliczaną z populacji (`engine/cities.ts`), która decyduje o jego roli:
+
+| Kategoria | Populacja | Lotnisko na start | Maks. poziom |
+| --- | --- | --- | --- |
+| Lotnisko lokalne | < 1 mln | 1 | 2 |
+| Ośrodek regionalny | 1–4 mln | 1 | 3 |
+| Duże miasto | 4–12 mln | 2 | 4 |
+| Metropolia | > 12 mln | 2 | 5 |
+
+Porty przesiadkowe (`hub`, np. Dubaj, Frankfurt, Singapur) startują o poziom wyżej i można je rozbudować do 5. Kierunki turystyczne (`tourism`, np. Malediwy, Phuket, Queenstown) przyciągają więcej pasażerów, niż wynika z populacji. Panel miasta pokazuje kategorię, potencjał pasażerów na dobę, poziom infrastruktury, limit rozbudowy i czas budowy — duże miasta dają więcej pasażerów, ale są droższe i dłużej się je buduje.
+
+### Dzień i noc
+
+Pora dnia w grze płynnie miesza dwie palety: jasną (dzień) i ciemną (noc), zarówno na mapie, jak i w całym interfejsie. Zmierzch trwa od 18:30 do 20:00, świt od 5:30 do 7:00; nocą lotniska delikatnie świecą. W menu można wybrać tryb „Pora dnia” (domyślny), stały jasny albo stały ciemny. Palety: `src/render/theme.ts` (mapa) i `src/theme/cssPalette.ts` (interfejs), mieszanie: `src/theme/dayNight.ts`.
 
 ## Stack
 
@@ -80,7 +99,7 @@ Zasada: **silnik nie wie nic o UI**. Kontroler wywołuje `advance(state, minuty)
 
 ## Jak rozwijać
 
-- **Nowe miasto** — dopisz wpis w `src/data/cities.ts`. Mapa, popyt, koszty i odległości liczą się automatycznie.
+- **Nowe miasto** — dopisz wpis w `src/data/cities.ts` (opcjonalnie `hub: true` albo `tourism: 2`). Kategoria, infrastruktura, czas budowy, popyt, koszty i odległości liczą się automatycznie.
 - **Nowy region** — wpis w `src/data/regions.ts` + miasta z tym `region`. Ewentualnie dodaj kolejny próg w `CONFIG.REGION_UNLOCK`.
 - **Nowy samolot** — wpis w `src/data/aircraft.ts` (pojawi się w katalogu, panelach tras i zakupach).
 - **Nowe wydarzenie** — obiekt w `src/data/events.ts`: cel (`city` / `region` / `global`), czas trwania i efekty (`demand`, `fuel`, `fare`, `closed`, `cash`, `reputation`).

@@ -37,7 +37,15 @@ export const CONFIG = {
 
   // Koszty inwestycji
   AIRPORT_BASE_COST: 60_000,
-  AIRPORT_COST_PER_MLN: 22_000,
+  /** Koszt rośnie z populacją^AIRPORT_COST_EXP. */
+  AIRPORT_COST_PER_MLN: 26_000,
+  AIRPORT_COST_EXP: 0.8,
+  /** Dopłata za każdy poziom infrastruktury ponad pierwszy, z jakim lotnisko startuje. */
+  AIRPORT_START_LEVEL_PREMIUM: 150_000,
+  /** Czas budowy lotniska (dni gry) = BASE + PER_TIER × kategoria miasta + PER_LEVEL × (poziom startowy − 1). */
+  BUILD_DAYS_BASE: 1.25,
+  BUILD_DAYS_PER_TIER: 0.4,
+  BUILD_DAYS_PER_LEVEL: 0.5,
   ROUTE_BASE_COST: 15_000,
   ROUTE_COST_PER_KM: 18,
   ROUTE_REFUND: 0.3,

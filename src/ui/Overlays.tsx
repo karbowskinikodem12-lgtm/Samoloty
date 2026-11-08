@@ -1,6 +1,8 @@
 import { CircleCheck, Info, Minus, Plus, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { useState } from 'react';
+import { CITY_BY_ID } from '../data/cities';
 import { planesOnRoute } from '../engine/actions';
+import { timeLeft } from './format';
 import { useGame } from '../game/useGame';
 
 const TOAST_ICON = { info: Info, good: CircleCheck, goal: Sparkles, level: Sparkles, event: Info, bad: TriangleAlert };
@@ -45,11 +47,18 @@ export function TutorialHint() {
   const [hidden, setHidden] = useState(readHidden);
   if (hidden) return null;
 
-  const airports = Object.keys(s.airports).length;
+  const airports = Object.values(s.airports).filter((a) => a.buildEnd === undefined).length;
+  const underConstruction = Object.values(s.airports).find((a) => a.buildEnd !== undefined);
   const routes = Object.values(s.routes);
   const served = routes.some((r) => planesOnRoute(s, r.id).length > 0);
   let step: { n: number; title: string; text: string } | null = null;
-  if (airports < 2) step = { n: 1, title: 'Otwórz drugie lotnisko', text: 'Kliknij miasto oznaczone pustym pierścieniem i wybierz „Otwórz lotnisko”. Bliskie miasta są tańsze w obsłudze.' };
+  if (airports < 2 && underConstruction)
+    step = {
+      n: 1,
+      title: `Trwa budowa lotniska ${CITY_BY_ID[underConstruction.cityId].name}`,
+      text: `Otwarcie za ${timeLeft((underConstruction.buildEnd ?? s.time) - s.time)}. Przyspiesz czas przyciskami 2× / 4× w prawym górnym rogu.`,
+    };
+  else if (airports < 2) step = { n: 1, title: 'Otwórz drugie lotnisko', text: 'Kliknij miasto oznaczone pustym kółkiem i wybierz „Zbuduj lotnisko”. Bliskie, mniejsze miasta są tańsze i szybciej gotowe.' };
   else if (routes.length === 0) step = { n: 2, title: 'Połącz lotniska trasą', text: 'Przytrzymaj lotnisko na mapie i przeciągnij linię do drugiego lotniska. Możesz też użyć przycisku „Nowa trasa”.' };
   else if (!served) step = { n: 3, title: 'Przypisz samolot', text: 'Kliknij trasę na mapie i przypisz do niej samolot czekający w hangarze.' };
   else if (s.totals.pax < 60) step = { n: 4, title: 'Obserwuj terminale', text: 'Pierścień wokół lotniska pokazuje zapełnienie terminalu. Gdy robi się czerwony, dodaj samoloty lub rozbuduj lotnisko.' };
@@ -103,6 +112,9 @@ export function Legend() {
       </span>
       <span>
         <i className="lg-dot airport" /> Lotnisko
+      </span>
+      <span>
+        <i className="lg-dot building" /> W budowie
       </span>
       <span>
         <i className="lg-dot ring" /> Dostępne miasto

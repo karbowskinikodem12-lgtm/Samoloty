@@ -8,7 +8,9 @@ import { cityDistance } from '../engine/geo';
 import { waitingTotal } from '../engine/passengers';
 import type { GameState } from '../engine/types';
 import type { GameController } from '../game/controller';
-import { moneyShort } from '../ui/format';
+import { moneyShort, timeLeft } from '../ui/format';
+import { buildProgress, cityTier, isOpen } from '../engine/cities';
+import { fade } from '../theme/dayNight';
 import { basePaths, CITY_XY, routeGeometry, WORLD_H, WORLD_W } from './projection';
 import { NO_INSETS, PLAY_INSETS, THEME } from './theme';
 
@@ -241,7 +243,7 @@ export class MapRenderer {
     this.camTarget = null;
     this.autoFit = null;
     const city = this.cityAt(sx, sy, s);
-    if (city && s.airports[city] && !this.ctrl.routeFrom) {
+    if (city && isOpen(s.airports[city]) && !this.ctrl.routeFrom) {
       this.drag = { mode: 'route', from: city, sx, sy, moved: false };
     } else {
       this.drag = { mode: 'pan', sx, sy, cx: this.cam.x, cy: this.cam.y, moved: false };
@@ -525,6 +527,7 @@ export class MapRenderer {
     const k = this.cam.k;
     const labels: { x: number; y: number; text: string; strong: boolean; priority: number }[] = [];
     const eventCities = new Set(s.events.map((e) => e.targetId));
+    const night = this.ctrl.night > 0.05;
 
     for (const c of CITIES) {
       const [x, y] = this.toScreen(...CITY_XY[c.id]);
@@ -534,23 +537,51 @@ export class MapRenderer {
       const isHover = this.hoverCity === c.id;
       const isSel = selected === c.id;
 
+      const tier = cityTier(c);
       if (!ap) {
         if (!unlocked) {
-          dot(ctx, x, y, 1.7, THEME.cityLocked);
+          dot(ctx, x, y, 0.9 + tier * 0.35, THEME.cityLocked);
           continue;
         }
-        const r = 2.6 + Math.min(1.6, Math.sqrt(c.pop) * 0.3);
+        const r = [0, 2.1, 2.6, 3.2, 3.9][tier];
         if (isSel || isHover) ring(ctx, x, y, r + 5, THEME.selection, 1.25);
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fillStyle = THEME.cityAvailableFill;
         ctx.fill();
-        ctx.lineWidth = 1.25;
+        ctx.lineWidth = tier >= 3 ? 1.5 : 1.15;
         ctx.strokeStyle = isHover || isSel ? THEME.cityAvailableHover : THEME.cityAvailable;
         ctx.stroke();
-        if (k >= 2.2 || isHover || isSel) {
-          labels.push({ x: x + r + 5, y, text: c.name, strong: false, priority: isHover || isSel ? 1000 : c.pop });
+        const minZoom = [0, 3.6, 2.6, 1.8, 1][tier];
+        if (k >= minZoom || isHover || isSel) {
+          labels.push({ x: x + r + 5, y, text: c.name, strong: false, priority: isHover || isSel ? 1000 : tier * 100 + c.pop });
         }
+        continue;
+      }
+
+      if (ap.buildEnd !== undefined) {
+        // Lotnisko w budowie: pusty punkt i łuk postępu.
+        const { ratio, left } = buildProgress(s, ap);
+        const r = 4;
+        const ringR = r + 4;
+        ring(ctx, x, y, ringR, THEME.ringTrack, 2);
+        ctx.beginPath();
+        ctx.arc(x, y, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+        ctx.strokeStyle = THEME.accent;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        if (isSel || isHover) ring(ctx, x, y, ringR + 4, THEME.selection, 1.25);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.halo;
+        ctx.fill();
+        ctx.setLineDash([2, 2]);
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = THEME.construction;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        labels.push({ x: x + ringR + 5, y, text: `${c.name} · ${timeLeft(left)}`, strong: false, priority: 1500 + c.pop });
         continue;
       }
 
@@ -572,11 +603,21 @@ export class MapRenderer {
         ctx.stroke();
         if (fill > 0.9) {
           const pulse = (now % 1400) / 1400;
-          ring(ctx, x, y, ringR + 2 + pulse * 9, withAlpha(THEME.danger, 0.45 * (1 - pulse)), 1.5);
+          ring(ctx, x, y, ringR + 2 + pulse * 9, fade(THEME.danger, 0.45 * (1 - pulse)), 1.5);
         }
       }
       if (isSel || isHover || this.ctrl.routeFrom === c.id) ring(ctx, x, y, ringR + 4, THEME.selection, 1.25);
 
+      if (night) {
+        // Nocą lotniska delikatnie świecą, jak światła miasta.
+        const g = ctx.createRadialGradient(x, y, 0, x, y, ringR + 12);
+        g.addColorStop(0, THEME.glow);
+        g.addColorStop(1, fade(THEME.glow, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, ringR + 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.beginPath();
       ctx.arc(x, y, r + 1.5, 0, Math.PI * 2);
       ctx.fillStyle = THEME.halo;
@@ -606,7 +647,7 @@ export class MapRenderer {
         y,
         text: c.name,
         strong: true,
-        priority: (isSel || isHover ? 2000 : 100) + ap.level * 10 + c.pop,
+        priority: (isSel || isHover ? 3000 : 800) + ap.level * 10 + c.pop,
       });
     }
 
@@ -727,9 +768,4 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   const len = dx * dx + dy * dy;
   const t = len ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len)) : 0;
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-}
-
-function withAlpha(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
 }

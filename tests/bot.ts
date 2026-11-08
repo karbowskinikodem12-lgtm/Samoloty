@@ -51,11 +51,14 @@ export function botTurn(s: GameState, reserve = 150_000): void {
   const totalCost = (c: { city: string; from: string }) =>
     airportOpenCost(c.city) + routeOpenCost(cityDistance(c.city, c.from)) + (idle ? 0 : 300_000);
   const pick = candidates.slice(0, 4).find((c) => s.money - totalCost(c) > reserve);
-  if (pick) {
-    {
-      openAirport(s, pick.city);
-      if (!checkOpenRoute(s, pick.from, pick.city)) openRoute(s, pick.from, pick.city);
-    }
+  if (pick && !Object.values(s.airports).some((a) => a.buildEnd !== undefined)) openAirport(s, pick.city);
+  // 4b. Nowo otwarte lotniska bez tras łączymy z najbliższym lotniskiem z wolnym slotem.
+  for (const ap of Object.values(s.airports)) {
+    if (ap.buildEnd !== undefined || Object.values(s.routes).some((r) => r.a === ap.cityId || r.b === ap.cityId)) continue;
+    const near = Object.keys(s.airports)
+      .filter((id) => id !== ap.cityId && !checkOpenRoute(s, id, ap.cityId))
+      .sort((x, y) => cityDistance(x, ap.cityId) - cityDistance(y, ap.cityId))[0];
+    if (near) openRoute(s, near, ap.cityId);
   }
   // 5. Nowy region, gdy stać nas z zapasem.
   for (const r of REGIONS) {

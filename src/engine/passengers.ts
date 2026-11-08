@@ -1,5 +1,6 @@
 import { airportLevel } from '../data/airportLevels';
 import { CITY_BY_ID } from '../data/cities';
+import { attraction, destinationWeight } from './cities';
 import { CONFIG } from './config';
 import { marketGrowth, reputationFactor } from './economy';
 import { demandModifier, getModifiers } from './events';
@@ -29,7 +30,7 @@ function destinations(s: GameState): DestTable['table'] {
     let total = 0;
     for (const d of dests) {
       const dist = net.pathCost[origin][d];
-      total += (CITY_BY_ID[d].pop ** CONFIG.DEST_POP_EXP / (1 + dist / CONFIG.DEST_DIST_SCALE)) * demandModifier(mods, d);
+      total += (destinationWeight(CITY_BY_ID[d]) / (1 + dist / CONFIG.DEST_DIST_SCALE)) * demandModifier(mods, d);
       cum.push(total);
     }
     table[origin] = { dests, cum };
@@ -41,14 +42,14 @@ function destinations(s: GameState): DestTable['table'] {
 /** Popyt (pasażerów na godzinę) generowany przez lotnisko. */
 export function demandPerHour(s: GameState, cityId: string): number {
   const ap = s.airports[cityId];
-  if (!ap) return 0;
+  if (!ap || ap.buildEnd !== undefined) return 0;
   const net = getNetwork(s);
   const reach = net.reachable[cityId]?.length ?? 0;
   if (reach === 0) return 0;
   const connectivity = Math.min(CONFIG.CONNECTIVITY_MAX, CONFIG.CONNECTIVITY_BASE + CONFIG.CONNECTIVITY_PER_DEST * reach);
   return (
     CONFIG.DEMAND_BASE *
-    Math.sqrt(CITY_BY_ID[cityId].pop) *
+    attraction(CITY_BY_ID[cityId]) *
     airportLevel(ap.level).demand *
     reputationFactor(s) *
     marketGrowth(s) *

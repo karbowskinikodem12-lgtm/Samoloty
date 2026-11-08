@@ -1,4 +1,5 @@
-import { CircleQuestionMark, FastForward, Menu, Pause, Play } from 'lucide-react';
+import { CircleQuestionMark, FastForward, Menu, Moon, Pause, Play, Sun, Sunrise, Sunset } from 'lucide-react';
+import { dayPhase } from '../theme/dayNight';
 import { CITIES } from '../data/cities';
 import { CONFIG } from '../engine/config';
 import { levelProgress } from '../engine/economy';
@@ -10,8 +11,8 @@ export function Logo({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="9" fill="var(--ink)" />
-      <path d="M8 21.5c5-1 11-4.5 16-10" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-      <circle cx="8" cy="21.5" r="2.4" fill="#fff" />
+      <path d="M8 21.5c5-1 11-4.5 16-10" stroke="var(--on-ink)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <circle cx="8" cy="21.5" r="2.4" fill="var(--on-ink)" />
       <circle cx="24" cy="11.5" r="2.4" fill="var(--accent-on-ink)" />
     </svg>
   );
@@ -25,7 +26,12 @@ export function TopBar() {
   const lp = levelProgress(s);
   const planes = Object.values(s.planes);
   const idle = planes.filter((p) => !p.routeId).length;
-  const cities = Object.keys(s.airports).length;
+  const all = Object.values(s.airports);
+  const cities = all.filter((a) => a.buildEnd === undefined).length;
+  const building = all.length - cities;
+  const phase = dayPhase(s.time);
+  const PhaseIcon = { day: Sun, dusk: Sunset, night: Moon, dawn: Sunrise }[phase];
+  const phaseName = { day: 'Dzień', dusk: 'Zmierzch', night: 'Noc', dawn: 'Świt' }[phase];
 
   return (
     <header className="topbar">
@@ -50,8 +56,10 @@ export function TopBar() {
         <div className="stat">
           <span className="stat-label">Miasta</span>
           <span className="stat-value">{cities}</span>
-          <span className="stat-sub">
-            z {CITIES.length} · {s.unlockedRegions.length} {plural(s.unlockedRegions.length, 'region', 'regiony', 'regionów')}
+          <span className={`stat-sub${building > 0 ? ' tone-accent' : ''}`}>
+            {building > 0
+              ? `${building} w budowie`
+              : `z ${CITIES.length} · ${s.unlockedRegions.length} ${plural(s.unlockedRegions.length, 'region', 'regiony', 'regionów')}`}
           </span>
         </div>
         <div className="stat stat-secondary">
@@ -83,6 +91,9 @@ export function TopBar() {
       </div>
 
       <div className="clock">
+        <span className="clock-phase" title={phaseName}>
+          <PhaseIcon size={17} strokeWidth={1.8} />
+        </span>
         <div className="clock-time">
           <span className="clock-hm">{clock(s.time)}</span>
           <span className="clock-day">Dzień {dayNumber(s.time)}</span>

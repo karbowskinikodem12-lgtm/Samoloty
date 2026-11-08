@@ -1,7 +1,8 @@
 import { CITY_BY_ID } from './cities';
 import type { GameState, GoalDef } from '../engine/types';
 
-const airports = (s: GameState) => Object.values(s.airports);
+/** Liczą się tylko działające lotniska (bez tych w budowie). */
+const airports = (s: GameState) => Object.values(s.airports).filter((a) => a.buildEnd === undefined);
 const routes = (s: GameState) => Object.values(s.routes);
 const regionsServed = (s: GameState) => new Set(airports(s).map((a) => CITY_BY_ID[a.cityId].region)).size;
 const lastDayProfit = (s: GameState) => {

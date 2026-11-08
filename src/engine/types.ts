@@ -23,6 +23,10 @@ export interface CityDef {
   lon: number;
   /** Populacja aglomeracji w milionach. */
   pop: number;
+  /** Ważny międzynarodowy port przesiadkowy (lepsza infrastruktura, wyższy limit rozbudowy). */
+  hub?: boolean;
+  /** Mnożnik atrakcyjności turystycznej (domyślnie 1). */
+  tourism?: number;
 }
 
 export interface AircraftDef {
@@ -107,6 +111,9 @@ export interface Airport {
   /** Ułamkowy akumulator generowania pasażerów. */
   spawnAcc: number;
   openedDay: number;
+  /** Lotnisko w budowie: czas gry (min), w którym rozpoczęto i zakończy się budowa. Brak pól = lotnisko działa. */
+  buildStart?: number;
+  buildEnd?: number;
   /** Statystyki bieżącego dnia. */
   today: { spawned: number; lost: number; departed: number };
   yesterday: { spawned: number; lost: number; departed: number };

@@ -5,9 +5,10 @@ import { REGION_BY_ID } from '../data/regions';
 import { CONFIG } from './config';
 import { airportOpenCost, planeResale, regionUnlockInfo, routeOpenCost } from './economy';
 import { cityDistance } from './geo';
+import { buildDays, buildMinutes, isBuilding, maxLevel, startLevel } from './cities';
 import { routeBetween, routesOf } from './network';
 import { dropUnreachable } from './passengers';
-import type { ActionResult, Airport, GameState, Plane, Route } from './types';
+import type { ActionResult, Airport, GameState, Plane, Route, SimSink } from './types';
 import { dayOf, log, nextId } from './util';
 
 /**
@@ -29,9 +30,9 @@ function spend(s: GameState, amount: number): void {
   s.today.investment += amount;
 }
 
-export function newAirport(cityId: string, day: number): Airport {
+export function newAirport(cityId: string, day: number, level = 1): Airport {
   const blank = { spawned: 0, lost: 0, departed: 0 };
-  return { cityId, level: 1, waiting: {}, spawnAcc: 0, openedDay: day, today: { ...blank }, yesterday: { ...blank } };
+  return { cityId, level, waiting: {}, spawnAcc: 0, openedDay: day, today: { ...blank }, yesterday: { ...blank } };
 }
 
 const blankRouteStats = () => ({ flights: 0, pax: 0, seats: 0, revenue: 0, cost: 0 });
@@ -41,6 +42,7 @@ const blankRouteStats = () => ({ flights: 0, pax: 0, seats: 0, revenue: 0, cost:
 export function checkOpenAirport(s: GameState, cityId: string): string | null {
   const city = CITY_BY_ID[cityId];
   if (!city) return 'Nieznane miasto.';
+  if (isBuilding(s.airports[cityId])) return 'Lotnisko jest w budowie.';
   if (s.airports[cityId]) return 'Lotnisko już działa.';
   if (!s.unlockedRegions.includes(city.region)) return `Region ${REGION_BY_ID[city.region].name} jest zablokowany.`;
   const cost = airportOpenCost(cityId);
@@ -51,16 +53,34 @@ export function checkOpenAirport(s: GameState, cityId: string): string | null {
 export function openAirport(s: GameState, cityId: string): ActionResult {
   const err = checkOpenAirport(s, cityId);
   if (err) return fail(err);
+  const city = CITY_BY_ID[cityId];
   spend(s, airportOpenCost(cityId));
-  s.airports[cityId] = newAirport(cityId, dayOf(s.time));
-  log(s, 'info', `Otwarto lotnisko ${CITY_BY_ID[cityId].name}`);
+  const ap = newAirport(cityId, dayOf(s.time), startLevel(city));
+  ap.buildStart = s.time;
+  ap.buildEnd = s.time + buildMinutes(city);
+  s.airports[cityId] = ap;
+  const days = buildDays(city);
+  log(s, 'info', `Rozpoczęto budowę lotniska ${city.name}`, `Otwarcie za ok. ${days.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} dnia.`);
   return { ok: true, id: cityId };
+}
+
+/** Kończy budowy, których termin minął. Wywoływane w każdym kroku symulacji. */
+export function updateConstruction(s: GameState, sink?: SimSink): void {
+  for (const ap of Object.values(s.airports)) {
+    if (ap.buildEnd === undefined || s.time < ap.buildEnd) continue;
+    delete ap.buildEnd;
+    delete ap.buildStart;
+    ap.openedDay = dayOf(s.time);
+    log(s, 'good', `Lotnisko ${CITY_BY_ID[ap.cityId].name} otwarte`, 'Połącz je trasą z inną częścią sieci.', sink);
+  }
 }
 
 export function checkUpgradeAirport(s: GameState, cityId: string): string | null {
   const ap = s.airports[cityId];
   if (!ap) return 'Najpierw otwórz lotnisko.';
+  if (isBuilding(ap)) return 'Lotnisko jest jeszcze w budowie.';
   if (ap.level >= MAX_AIRPORT_LEVEL) return 'Lotnisko ma maksymalny poziom.';
+  if (ap.level >= maxLevel(CITY_BY_ID[cityId])) return 'To najwyższy poziom możliwy w tym mieście.';
   const cost = airportLevel(ap.level + 1).upgradeCost;
   if (s.money < cost) return `Brakuje środków (${money(cost)}).`;
   return null;
@@ -87,6 +107,7 @@ export function freeSlots(s: GameState, cityId: string): number {
 export function checkOpenRoute(s: GameState, a: string, b: string): string | null {
   if (a === b) return 'Wybierz dwa różne lotniska.';
   if (!s.airports[a] || !s.airports[b]) return 'Oba miasta muszą mieć otwarte lotniska.';
+  for (const id of [a, b]) if (isBuilding(s.airports[id])) return `Lotnisko ${CITY_BY_ID[id].name} jest jeszcze w budowie.`;
   if (routeBetween(s, a, b)) return 'Ta trasa już istnieje.';
   if (freeSlots(s, a) <= 0) return `Brak wolnych slotów w ${CITY_BY_ID[a].name} — rozbuduj lotnisko.`;
   if (freeSlots(s, b) <= 0) return `Brak wolnych slotów w ${CITY_BY_ID[b].name} — rozbuduj lotnisko.`;

@@ -1,3 +1,4 @@
+import { updateConstruction } from './actions';
 import { CONFIG, MIN_PER_DAY } from './config';
 import { dailyFixedCosts } from './economy';
 import { updateEvents } from './events';
@@ -26,6 +27,7 @@ export function advance(s: GameState, minutes: number, sink: SimSink = emptySink
 function step(s: GameState, dt: number, sink: SimSink): void {
   const prevDay = dayOf(s.time);
   s.time += dt;
+  updateConstruction(s, sink);
   spawnPassengers(s, dt);
   updatePlanes(s, dt, sink);
   updateReputation(s, dt);

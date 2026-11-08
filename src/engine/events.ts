@@ -74,7 +74,7 @@ export function updateEvents(s: GameState, sink: SimSink): void {
 }
 
 export function triggerRandomEvent(s: GameState, sink: SimSink, forcedId?: string): ActiveEvent | null {
-  const cities = Object.keys(s.airports);
+  const cities = Object.keys(s.airports).filter((id) => s.airports[id].buildEnd === undefined);
   if (cities.length < 2 && !forcedId) return null;
   const active = new Set(s.events.map((e) => e.defId));
   const pool = forcedId

@@ -1,5 +1,8 @@
 :root {
-  /* Powierzchnie */
+  /*
+   * Wartości dzienne. W trakcie gry są nadpisywane płynną mieszanką palety dziennej i nocnej
+   * (src/theme/cssPalette.ts, src/theme/dayNight.ts) — nowe kolory dodawaj w obu miejscach.
+   */
   --map: #e8edf2;
   --surface: #ffffff;
   --surface-2: #f6f7f9;
@@ -7,13 +10,13 @@
   --line: #e7eaef;
   --line-strong: #d7dce3;
 
-  /* Tekst */
   --ink: #16202f;
+  --ink-hover: #2a374b;
+  --on-ink: #ffffff;
   --text: #16202f;
   --text-dim: #5b6778;
   --text-faint: #8a94a3;
 
-  /* Jeden akcent + kolory statusu */
   --accent: #2f6fed;
   --accent-strong: #2459c9;
   --accent-soft: rgba(47, 111, 237, 0.08);
@@ -26,12 +29,14 @@
   --danger: #d4483b;
   --danger-soft: rgba(212, 72, 59, 0.08);
 
-  /* Kształt i głębia */
+  --shadow-rgb: 22, 32, 47;
+  --veil: rgba(232, 237, 242, 0.35);
+
   --radius-lg: 16px;
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow-panel: 0 1px 2px rgba(22, 32, 47, 0.04), 0 6px 24px rgba(22, 32, 47, 0.07);
-  --shadow-pop: 0 2px 6px rgba(22, 32, 47, 0.05), 0 16px 44px rgba(22, 32, 47, 0.14);
+  --shadow-panel: 0 1px 2px rgba(var(--shadow-rgb), 0.05), 0 6px 24px rgba(var(--shadow-rgb), 0.08);
+  --shadow-pop: 0 2px 6px rgba(var(--shadow-rgb), 0.06), 0 16px 44px rgba(var(--shadow-rgb), 0.16);
 
   /* Układ (musi odpowiadać PLAY_INSETS w render/theme.ts) */
   --gap: 16px;

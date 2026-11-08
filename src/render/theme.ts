@@ -1,9 +1,9 @@
 /**
- * Paleta mapy (canvas). Jasna, stonowana: atrament (ink) dla elementów gracza, jeden akcent
- * dla zaznaczeń i kolory statusu tylko tam, gdzie niosą informację (zapełnienie terminali).
- * Kolory interfejsu HTML są w styles/tokens.css — trzymaj je w zgodzie.
+ * Palety mapy (canvas) dla dnia i nocy. Renderer czyta kolory z obiektu THEME, który jest
+ * aktualizowany w każdej klatce mieszanką obu palet (patrz theme/dayNight.ts).
+ * Kolory interfejsu HTML są w theme/cssPalette.ts — trzymaj je w zgodzie.
  */
-export const THEME = {
+export const MAP_DAY = {
   background: '#e8edf2',
   ocean: '#e8edf2',
   land: '#fbfbfc',
@@ -11,10 +11,7 @@ export const THEME = {
   borders: 'rgba(100, 116, 139, 0.20)',
   graticule: 'rgba(100, 116, 139, 0.06)',
 
-  ink: '#16202f',
   accent: '#2f6fed',
-  accentSoft: 'rgba(47, 111, 237, 0.14)',
-
   cityLocked: 'rgba(100, 116, 139, 0.28)',
   cityAvailableFill: '#ffffff',
   cityAvailable: 'rgba(71, 85, 105, 0.55)',
@@ -24,6 +21,8 @@ export const THEME = {
   halo: '#ffffff',
   selection: 'rgba(47, 111, 237, 0.55)',
   ringTrack: 'rgba(22, 32, 47, 0.08)',
+  construction: '#16202f',
+  glow: 'rgba(255, 220, 160, 0)',
 
   route: 'rgba(22, 32, 47, 0.30)',
   routeTouch: 'rgba(47, 111, 237, 0.60)',
@@ -51,6 +50,59 @@ export const THEME = {
   pillBorder: 'rgba(22, 32, 47, 0.10)',
   pillShadow: 'rgba(22, 32, 47, 0.12)',
 };
+
+export type MapPalette = typeof MAP_DAY;
+
+export const MAP_NIGHT: MapPalette = {
+  background: '#0c121b',
+  ocean: '#0c121b',
+  land: '#161f2c',
+  coast: 'rgba(148, 163, 184, 0.20)',
+  borders: 'rgba(148, 163, 184, 0.11)',
+  graticule: 'rgba(148, 163, 184, 0.04)',
+
+  accent: '#6f9dff',
+  cityLocked: 'rgba(148, 163, 184, 0.22)',
+  cityAvailableFill: '#161f2c',
+  cityAvailable: 'rgba(170, 184, 204, 0.55)',
+  cityAvailableHover: '#e8edf4',
+  airport: '#e8edf4',
+  hub: '#6f9dff',
+  halo: '#161f2c',
+  selection: 'rgba(111, 157, 255, 0.6)',
+  ringTrack: 'rgba(232, 237, 244, 0.10)',
+  construction: '#e8edf4',
+  glow: 'rgba(255, 214, 150, 0.16)',
+
+  route: 'rgba(232, 237, 244, 0.28)',
+  routeTouch: 'rgba(111, 157, 255, 0.65)',
+  routeActive: '#6f9dff',
+  routeGlow: 'rgba(111, 157, 255, 0.15)',
+  routeIdle: 'rgba(148, 163, 184, 0.45)',
+  preview: 'rgba(232, 237, 244, 0.5)',
+  previewOk: '#6f9dff',
+  previewBad: '#ef6b5e',
+
+  plane: '#f1f5fa',
+  planeSelected: '#6f9dff',
+  planeOutline: '#0c121b',
+
+  ok: '#45c08a',
+  warn: '#e0a43a',
+  danger: '#ef6b5e',
+  event: '#e0a43a',
+  money: '#5fd39b',
+
+  text: '#e8edf4',
+  textDim: '#9aa6b6',
+  labelHalo: 'rgba(12, 18, 27, 0.92)',
+  pillBg: '#151c27',
+  pillBorder: 'rgba(148, 163, 184, 0.18)',
+  pillShadow: 'rgba(0, 0, 0, 0.4)',
+};
+
+/** Bieżące kolory mapy (mieszanka dnia i nocy), aktualizowane przez theme/dayNight.ts. */
+export const THEME: MapPalette = { ...MAP_DAY };
 
 /**
  * Obszary ekranu zasłonięte przez pływające panele (px). Muszą odpowiadać układowi w app.css

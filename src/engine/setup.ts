@@ -17,7 +17,7 @@ export function newGame(startCity: string, seed = Date.now() % 2147483647, airli
     version: SAVE_VERSION,
     seed,
     rng: seed,
-    time: 6 * 60, // start o 6:00 pierwszego dnia
+    time: 8 * 60, // start o 8:00 pierwszego dnia (pełny dzień)
     money: CONFIG.START_MONEY,
     reputation: CONFIG.START_REPUTATION,
     xp: 0,

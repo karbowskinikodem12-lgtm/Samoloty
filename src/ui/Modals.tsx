@@ -1,4 +1,5 @@
-import { LogOut, Play, Save, X } from 'lucide-react';
+import { LogOut, Moon, Play, Save, SunMoon, Sun, X } from 'lucide-react';
+import type { ThemeMode } from '../theme/dayNight';
 import type { ReactNode } from 'react';
 import { clearSave } from '../engine/save';
 import { useGame } from '../game/useGame';
@@ -61,6 +62,11 @@ export function HelpModal() {
             Każdy lot kosztuje (paliwo, załoga, opłaty) niezależnie od obłożenia, a samoloty i lotniska mają dzienne koszty utrzymania. Pilnuj obłożenia tras: duży samolot na
             pustej trasie traci pieniądze. Trzy dni z ujemnym saldem oznaczają bankructwo.
           </p>
+          <h3>Budowa i pora dnia</h3>
+          <p>
+            Nowe lotnisko powstaje kilka dni gry — postęp widać na mapie i w panelu miasta. Większe miasta mają lepszą infrastrukturę na start i wyższy limit rozbudowy, ale ich
+            budowa trwa dłużej i kosztuje więcej. Po zmroku mapa i interfejs przechodzą w ciemny motyw (można to zmienić w menu).
+          </p>
           <h3>Wydarzenia</h3>
           <p>Festiwale, burze, strajki czy zmiany cen paliwa czasowo zmieniają popyt i koszty. Aktywne wydarzenia znajdziesz w zakładce Przegląd.</p>
         </section>
@@ -120,7 +126,24 @@ export function MenuModal() {
           Zapisz i wyjdź do menu
         </Button>
       </div>
-      <p className="hint">Gra zapisuje się automatycznie co kilkanaście sekund w pamięci przeglądarki.</p>
+      <span className="menu-label">Motyw</span>
+      <div className="theme-switch" role="group" aria-label="Motyw">
+        {(
+          [
+            ['auto', 'Pora dnia', SunMoon],
+            ['light', 'Jasny', Sun],
+            ['dark', 'Ciemny', Moon],
+          ] as [ThemeMode, string, typeof Sun][]
+        ).map(([mode, label, Icon]) => (
+          <button key={mode} className={c.themeMode === mode ? 'active' : ''} onClick={() => c.setThemeMode(mode)}>
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="hint">
+        „Pora dnia” płynnie przełącza jasny i ciemny wygląd razem z zegarem gry. Gra zapisuje się automatycznie co kilkanaście sekund w pamięci przeglądarki.
+      </p>
     </Modal>
   );
 }

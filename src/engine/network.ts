@@ -92,6 +92,6 @@ export function routeDistance(a: string, b: string): number {
 
 export function regionsInNetwork(s: GameState): Set<string> {
   const set = new Set<string>();
-  for (const id of Object.keys(s.airports)) set.add(CITY_BY_ID[id].region);
+  for (const [id, ap] of Object.entries(s.airports)) if (ap.buildEnd === undefined) set.add(CITY_BY_ID[id].region);
   return set;
 }
