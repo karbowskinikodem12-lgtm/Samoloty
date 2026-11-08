@@ -1,5 +1,6 @@
 import { updateConstruction } from './actions';
 import { CONFIG, MIN_PER_DAY } from './config';
+import { updateExpeditions } from './countries';
 import { dailyFixedCosts } from './economy';
 import { chargeLoans, updateEvents } from './events';
 import { updatePlanes } from './flights';
@@ -28,6 +29,7 @@ function step(s: GameState, dt: number, sink: SimSink): void {
   const prevDay = dayOf(s.time);
   s.time += dt;
   updateConstruction(s, sink);
+  updateExpeditions(s, sink);
   spawnPassengers(s, dt);
   updatePlanes(s, dt, sink);
   updateReputation(s, dt);

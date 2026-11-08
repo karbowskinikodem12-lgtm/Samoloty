@@ -1,6 +1,8 @@
 import { ArrowUpRight, Building, Lock, Plus, Route as RouteIcon, X } from 'lucide-react';
 import type { CityDef } from '../../engine/types';
-import { buildDays, buildProgress, cityTier, maxLevel, potentialPerDay, startLevel, TIER_NAMES } from '../../engine/cities';
+import { checkExpedition, countryOfCity, CITY_COUNTRY, expeditionCost, expeditionDays, isCityDiscovered, startExpedition } from '../../engine/countries';
+import { Compass } from 'lucide-react';
+import { buildDays, buildProgress, cityTier, maxLevel, maxLevelFor, potentialPerDay, startLevel, TIER_NAMES } from '../../engine/cities';
 import { AIRPORT_LEVELS, airportLevel, MAX_AIRPORT_LEVEL } from '../../data/airportLevels';
 import { CITY_BY_ID } from '../../data/cities';
 import { REGION_BY_ID } from '../../data/regions';
@@ -15,7 +17,7 @@ import { ActionButton, Button, Empty, KV, Meter, Pill, Section } from '../common
 import { clock, dayNumber, hoursLeft, km, money, num, pct, timeLeft } from '../format';
 
 /** Krótka charakterystyka miasta: kategoria, potencjał pasażerów i infrastruktura lotniska. */
-function CityFacts({ city, opened }: { city: CityDef; opened: boolean }) {
+function CityFacts({ city, opened, maxLvl }: { city: CityDef; opened: boolean; maxLvl?: number }) {
   const tier = cityTier(city);
   const tourism = city.tourism ?? 1;
   return (
@@ -29,7 +31,7 @@ function CityFacts({ city, opened }: { city: CityDef; opened: boolean }) {
         <KV label="Populacja" value={`${city.pop.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} mln`} />
         <KV label="Potencjał pasażerów" value={`ok. ${num(potentialPerDay(city))} / dzień`} />
         {!opened && <KV label="Lotnisko po otwarciu" value={`poziom ${startLevel(city)}`} />}
-        <KV label="Maks. rozbudowa" value={`poziom ${maxLevel(city)}`} />
+        <KV label="Maks. rozbudowa" value={`poziom ${maxLvl ?? maxLevel(city)}`} />
         {!opened && <KV label="Czas budowy" value={`${buildDays(city).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} dnia`} />}
       </div>
     </>
@@ -59,6 +61,8 @@ export function CityPanel({ cityId }: { cityId: string }) {
     </header>
   );
 
+  if (!ap && !isCityDiscovered(s, cityId)) return <UndiscoveredPanel cityId={cityId} />;
+
   if (!unlocked && !ap) {
     return (
       <div className="panel-body">
@@ -67,11 +71,11 @@ export function CityPanel({ cityId }: { cityId: string }) {
           <Lock size={16} />
           <div>
             <strong>Region zablokowany</strong>
-            <p>Aby otwierać lotniska w regionie {region.name}, kup licencję w zakładce Regiony.</p>
+            <p>Aby otwierać lotniska w regionie {region.name}, kup licencję w zakładce Świat.</p>
           </div>
         </div>
         <Button onClick={() => c.setTab('regions')} icon={ArrowUpRight} block>
-          Przejdź do regionów
+          Przejdź do zakładki Świat
         </Button>
       </div>
     );
@@ -136,7 +140,7 @@ export function CityPanel({ cityId }: { cityId: string }) {
   const topWaiting = Object.entries(ap.waiting)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
-  const cityMax = Math.min(MAX_AIRPORT_LEVEL, maxLevel(city));
+  const cityMax = Math.min(MAX_AIRPORT_LEVEL, maxLevelFor(s, cityId));
   const next = ap.level < cityMax ? AIRPORT_LEVELS[ap.level] : null;
 
   return (
@@ -153,6 +157,7 @@ export function CityPanel({ cityId }: { cityId: string }) {
             />
           ))}
         </div>
+        <span className="level-name">{lvl.name}</span>
         {cityId === s.startCity && <Pill tone="warn">Baza</Pill>}
         {closed && <Pill tone="bad">Zamknięte</Pill>}
       </div>
@@ -258,8 +263,59 @@ export function CityPanel({ cityId }: { cityId: string }) {
       )}
 
       <Section title="Miasto">
-        <CityFacts city={city} opened />
+        <CityFacts city={city} opened maxLvl={cityMax} />
       </Section>
+    </div>
+  );
+}
+
+/** Miasto w nieodkrytym kraju: dane są ukryte, można wysłać misję rozpoznawczą. */
+function UndiscoveredPanel({ cityId }: { cityId: string }) {
+  const c = useGame();
+  const s = c.state!;
+  const country = countryOfCity(cityId);
+  const countryId = CITY_COUNTRY[cityId];
+  const exp = s.expeditions.find((e) => e.countryId === countryId);
+  const unlocked = s.unlockedRegions.includes(CITY_BY_ID[cityId].region);
+  return (
+    <div className="panel-body">
+      <header className="panel-head">
+        <div className="code-badge">?</div>
+        <div className="panel-title">
+          <h2>Nieodkryty kraj</h2>
+          <div className="panel-sub">
+            {country.name} · {REGION_BY_ID[CITY_BY_ID[cityId].region].name}
+          </div>
+        </div>
+        <button className="icon-btn" onClick={() => c.select(null)} title="Zamknij (Esc)">
+          <X size={18} />
+        </button>
+      </header>
+      <div className="callout">
+        <Compass size={16} />
+        <div>
+          <strong>Mapa tego obszaru jest nieznana</strong>
+          <p>
+            Miasta w kraju {country.name} ({country.cityIds.length}) poznasz po odkryciu. Kraje odkrywają się same, gdy znajdą się w zasięgu Twoich lotnisk — zasięg
+            rośnie z każdym nowym lotniskiem i każdą rozbudową. Możesz też wysłać misję rozpoznawczą.
+          </p>
+        </div>
+      </div>
+      {exp ? (
+        <Section title="Misja rozpoznawcza w toku" aside={pct((s.time - exp.start) / Math.max(1, exp.end - exp.start))}>
+          <Meter value={(s.time - exp.start) / Math.max(1, exp.end - exp.start)} tone="accent" />
+          <KV label="Wyniki za" value={timeLeft(exp.end - s.time)} />
+        </Section>
+      ) : (
+        <ActionButton
+          label="Wyślij misję rozpoznawczą"
+          cost={`${money(expeditionCost(s, countryId))} · ${expeditionDays(s, countryId).toLocaleString('pl-PL')} dnia`}
+          icon={Compass}
+          reason={checkExpedition(s, countryId)}
+          onClick={() => c.act((st) => startExpedition(st, countryId), `Misja rozpoznawcza: ${country.name}`)}
+        />
+      )}
+      {!unlocked && <p className="hint">Po odkryciu będziesz potrzebować jeszcze licencji na region, aby budować tu lotniska.</p>}
     </div>
   );
 }

@@ -44,10 +44,15 @@ export interface AircraftDef {
   upkeep: number;
   minLevel: number;
   minAirportLevel: number;
+  /** Mnożnik ceny biletu (np. samoloty naddźwiękowe). Domyślnie 1. */
+  fareMult?: number;
+  /** Krótka charakterystyka w katalogu. */
+  note?: string;
 }
 
 export interface AirportLevelDef {
   level: number;
+  name: string;
   slots: number;
   capacity: number;
   demand: number;
@@ -188,6 +193,13 @@ export interface EventInstance {
   effects?: ResolvedEffects;
   lines?: ConsequenceLine[];
   choices?: EventChoice[];
+}
+
+export interface Expedition {
+  id: number;
+  countryId: string;
+  start: number;
+  end: number;
 }
 
 export interface Loan {
@@ -343,6 +355,10 @@ export interface GameState {
   /** Czas, do którego dane wydarzenie nie może się powtórzyć. */
   eventCooldowns: Record<string, number>;
   loans: Loan[];
+  /** Odkryte kraje (id z mapy świata). */
+  discovered: string[];
+  /** Trwające misje rozpoznawcze. */
+  expeditions: Expedition[];
   goalsDone: string[];
   today: DayStats;
   history: DayStats[];

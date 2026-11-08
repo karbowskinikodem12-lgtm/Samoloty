@@ -9,13 +9,16 @@ import {
 import { airportOpenCost, routeOpenCost } from '../src/engine/economy';
 import { cityDistance } from '../src/engine/geo';
 import { waitingTotal } from '../src/engine/passengers';
-import { resolvePendingEvent } from '../src/engine/events';
+import { choiceBlocked, resolvePendingEvent } from '../src/engine/events';
 import type { GameState } from '../src/engine/types';
 
 /** Prosty gracz-bot używany do testów balansu. Raz na kilka godzin gry podejmuje decyzje. */
 export function botTurn(s: GameState, reserve = 150_000): void {
-  // 0. Ważne wydarzenia: bot zawsze wybiera pierwszą opcję.
-  for (const e of [...s.pendingEvents]) resolvePendingEvent(s, e.uid, 0);
+  // 0. Ważne wydarzenia: bot wybiera pierwszą opcję, na którą go stać.
+  for (const e of [...s.pendingEvents]) {
+    const i = e.choices ? Math.max(0, e.choices.findIndex((ch) => !choiceBlocked(s, ch))) : 0;
+    resolvePendingEvent(s, e.uid, i);
+  }
   // 1. Wolne samoloty → trasa z największą kolejką.
   for (const p of Object.values(s.planes)) {
     if (p.routeId) continue;

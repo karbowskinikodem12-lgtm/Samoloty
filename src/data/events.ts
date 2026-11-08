@@ -1,6 +1,6 @@
 import { airportLevel } from './airportLevels';
 import { CITY_BY_ID } from './cities';
-import { maxLevel } from '../engine/cities';
+import { maxLevelFor } from '../engine/cities';
 import { randRange } from '../engine/rng';
 import type { Amount, EventDef, EventVariant, GameState } from '../engine/types';
 
@@ -35,7 +35,7 @@ const all =
 const bigCity = (min: number) => (_s: GameState, id: string) => CITY_BY_ID[id].pop >= min;
 const upgradeable = (s: GameState, id: string) => {
   const ap = s.airports[id];
-  return !!ap && ap.level < Math.min(5, maxLevel(CITY_BY_ID[id]));
+  return !!ap && ap.level < maxLevelFor(s, id);
 };
 const upgradeCost = (share: number): Amount => (s, ctx) => {
   const ap = ctx.targetId ? s.airports[ctx.targetId] : undefined;

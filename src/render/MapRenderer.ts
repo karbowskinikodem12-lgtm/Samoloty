@@ -11,7 +11,8 @@ import type { GameController } from '../game/controller';
 import { moneyShort, timeLeft } from '../ui/format';
 import { buildProgress, cityTier, isOpen } from '../engine/cities';
 import { fade } from '../theme/dayNight';
-import { basePaths, CITY_XY, routeGeometry, WORLD_H, WORLD_W } from './projection';
+import { basePaths, CITY_XY, countryPaths, routeGeometry, WORLD_H, WORLD_W } from './projection';
+import { CITY_COUNTRY, countryOfCity } from '../engine/countries';
 import { NO_INSETS, PLAY_INSETS, THEME } from './theme';
 
 interface Camera {
@@ -57,6 +58,8 @@ export class MapRenderer {
   private drag: DragState = null;
   private disposers: (() => void)[] = [];
   private lastState: GameState | null = null;
+  private fogKey = '';
+  private fogPath: Path2D | null = null;
   /** Miasta do objęcia kamerą po starcie gry (ponawiane przy zmianie rozmiaru, dopóki gracz nie ruszy mapy). */
   private autoFit: string[] | null = null;
 
@@ -388,7 +391,28 @@ export class MapRenderer {
     ctx.lineWidth = 0.9 / sc;
     ctx.strokeStyle = THEME.coast;
     ctx.stroke(land);
+    const fog = this.fog();
+    if (fog) {
+      // Nieodkryte kraje: ląd przykryty mgłą w kolorze morza.
+      ctx.fillStyle = THEME.fog;
+      ctx.fill(fog);
+    }
     ctx.restore();
+  }
+
+  /** Wspólna ścieżka wszystkich nieodkrytych krajów (przeliczana przy zmianie listy odkryć). */
+  private fog(): Path2D | null {
+    const s = this.ctrl.state;
+    if (!s) return null;
+    const key = `${s.seed}:${s.discovered.length}`;
+    if (key !== this.fogKey) {
+      this.fogKey = key;
+      const known = new Set(s.discovered);
+      const path = new Path2D();
+      for (const [id, p] of countryPaths()) if (!known.has(id)) path.addPath(p);
+      this.fogPath = path;
+    }
+    return this.fogPath;
   }
 
   private strokeRoute(a: string, b: string): void {
@@ -528,6 +552,7 @@ export class MapRenderer {
     const labels: { x: number; y: number; text: string; strong: boolean; priority: number }[] = [];
     const eventCities = new Set(s.events.map((e) => e.targetId));
     const night = this.ctrl.night > 0.02;
+    const discovered = new Set(s.discovered);
 
     for (const c of CITIES) {
       const [x, y] = this.toScreen(...CITY_XY[c.id]);
@@ -539,6 +564,16 @@ export class MapRenderer {
 
       const tier = cityTier(c);
       if (!ap) {
+        const known = discovered.has(CITY_COUNTRY[c.id]);
+        if (!known) {
+          // Nieodkryty kraj: tylko dyskretny punkt; nazwa kraju po najechaniu.
+          if (unlocked && (isHover || isSel)) {
+            ring(ctx, x, y, 5, THEME.selection, 1.25);
+            labels.push({ x: x + 8, y, text: `${countryOfCity(c.id).name} · nieodkryty`, strong: false, priority: 1000 });
+          }
+          dot(ctx, x, y, 1.3, THEME.cityLocked);
+          continue;
+        }
         if (!unlocked) {
           dot(ctx, x, y, 0.9 + tier * 0.35, THEME.cityLocked);
           continue;
@@ -586,7 +621,7 @@ export class MapRenderer {
       }
 
       const lvl = airportLevel(ap.level);
-      const r = 3.6 + ap.level * 0.6;
+      const r = 3.8 + ap.level * 0.45;
       const fill = waitingTotal(s, c.id) / lvl.capacity;
       const isHub = c.id === s.startCity;
       const ringR = r + 4;

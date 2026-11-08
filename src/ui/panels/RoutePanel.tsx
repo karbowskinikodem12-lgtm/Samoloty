@@ -168,7 +168,7 @@ export function RoutePanel({ routeId }: { routeId: string }) {
             const reason = full ? 'Trasa ma maksymalną liczbę samolotów.' : checkBuyPlane(s, a.id, routeId);
             const fm = flightMinutes(a, r.distance);
             const cost = flightCost(a, r.distance);
-            const breakEven = cost / (fare(r.distance) * a.seats);
+            const breakEven = cost / (fare(r.distance) * (a.fareMult ?? 1) * a.seats);
             return (
               <li key={a.id} className="buy-row">
                 <div>

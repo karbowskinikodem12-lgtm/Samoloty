@@ -12,7 +12,7 @@ const TABS: { id: SideTab; label: string; icon: typeof Globe }[] = [
   { id: 'overview', label: 'Przegląd', icon: LayoutDashboard },
   { id: 'routes', label: 'Trasy', icon: Waypoints },
   { id: 'fleet', label: 'Flota', icon: Plane },
-  { id: 'regions', label: 'Regiony', icon: Globe },
+  { id: 'regions', label: 'Świat', icon: Globe },
 ];
 
 export function SidePanel() {

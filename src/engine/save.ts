@@ -1,3 +1,4 @@
+import { updateDiscovery } from './countries';
 import { SAVE_VERSION } from './setup';
 import type { GameState } from './types';
 
@@ -42,6 +43,11 @@ export function migrate(s: GameState): GameState {
   s.loans ??= [];
   s.eventCooldowns ??= {};
   s.nextMajorAt ??= 0;
+  s.expeditions ??= [];
+  if (!s.discovered) {
+    s.discovered = [];
+    updateDiscovery(s, undefined, true);
+  }
   // Stary format aktywnych wydarzeń (bez modyfikatorów) jest odrzucany.
   s.events = (s.events ?? []).filter((e) => e && typeof e === 'object' && 'mods' in e);
   s.eventRev = (s.eventRev ?? 0) + 1;

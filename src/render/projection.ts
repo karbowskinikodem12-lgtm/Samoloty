@@ -85,3 +85,18 @@ export function routeGeometry(a: string, b: string): RouteGeometry {
   geomCache.set(key, g);
   return g;
 }
+
+let countryPathCache: Map<string, Path2D> | null = null;
+
+/** Ścieżki poszczególnych krajów (do mgły nad nieodkrytymi obszarami). */
+export function countryPaths(): Map<string, Path2D> {
+  if (countryPathCache) return countryPathCache;
+  const topo = worldTopo as unknown as Topology<{ countries: GeometryCollection }>;
+  const fc = feature(topo, topo.objects.countries) as unknown as FeatureCollection<Polygon | MultiPolygon>;
+  countryPathCache = new Map();
+  for (const f of fc.features) {
+    if (f.id === undefined || f.id === null) continue;
+    countryPathCache.set(String(f.id), toPath2D(pathGen(f)));
+  }
+  return countryPathCache;
+}

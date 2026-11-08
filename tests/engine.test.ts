@@ -77,7 +77,9 @@ describe('akcje', () => {
     expect(startLevel(CITY_BY_ID.tokyo)).toBe(3);
     expect(startLevel(CITY_BY_ID.krakow)).toBe(1);
     expect(maxLevel(CITY_BY_ID.queenstown)).toBe(2);
-    expect(maxLevel(CITY_BY_ID.dubai)).toBe(5);
+    expect(maxLevel(CITY_BY_ID.dubai)).toBe(8);
+    expect(maxLevel(CITY_BY_ID.tokyo)).toBe(8);
+    expect(maxLevel(CITY_BY_ID.krakow)).toBe(4);
     // Małe lotnisko nie da się rozbudować ponad swój limit.
     const s = newGame('warsaw', 2);
     s.money = 50_000_000;
@@ -85,6 +87,9 @@ describe('akcje', () => {
     expect(upgradeAirport(s, 'rzeszow').ok).toBe(true);
     expect(checkUpgradeAirport(s, 'rzeszow')).toMatch(/najwyższy/);
     expect(s.airports.rzeszow.level).toBe(maxLevel(CITY_BY_ID.rzeszow));
+    // Lotnisko bazowe można rozbudować do najwyższego poziomu, niezależnie od wielkości miasta.
+    for (let i = 0; i < 10; i++) upgradeAirport(s, 'warsaw');
+    expect(s.airports.warsaw.level).toBe(8);
   });
 
   it('nie pozwala otworzyć lotniska w zablokowanym regionie', () => {

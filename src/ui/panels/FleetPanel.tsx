@@ -93,11 +93,27 @@ export function FleetPanel() {
         )}
       </Section>
 
-      <Section title="Katalog samolotów">
+      <Section title="Katalog samolotów" aside={`${AIRCRAFT.filter((a) => a.minLevel <= s.level).length} / ${AIRCRAFT.length} dostępnych`}>
         <div className="catalog">
           {AIRCRAFT.map((a) => {
             const locked = s.level < a.minLevel;
             const reason = checkBuyPlane(s, a.id);
+            if (locked)
+              return (
+                <div key={a.id} className="aircraft-card locked compact">
+                  <div className="ac-head">
+                    <div>
+                      <strong>{a.name}</strong>
+                      <div className="dim">
+                        {a.category} · {a.seats} miejsc · {num(a.range)} km
+                      </div>
+                    </div>
+                    <span className="lock-tag">
+                      <Lock size={12} /> poziom {a.minLevel}
+                    </span>
+                  </div>
+                </div>
+              );
             return (
               <div key={a.id} className={`aircraft-card${locked ? ' locked' : ''}`}>
                 <div className="ac-head">
@@ -113,6 +129,7 @@ export function FleetPanel() {
                     <span className="ac-price">{money(a.price)}</span>
                   )}
                 </div>
+                {a.note && <div className="ac-note">{a.note}</div>}
                 <div className="ac-stats">
                   <div>
                     <span>Miejsca</span>

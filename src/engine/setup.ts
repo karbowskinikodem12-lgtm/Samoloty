@@ -1,6 +1,7 @@
 import { CITY_BY_ID } from '../data/cities';
 import { addPlane, newAirport } from './actions';
 import { CONFIG } from './config';
+import { updateDiscovery } from './countries';
 import type { DayStats, GameState } from './types';
 import { log } from './util';
 
@@ -37,6 +38,8 @@ export function newGame(startCity: string, seed = Date.now() % 2147483647, airli
     nextMajorAt: 0,
     eventCooldowns: {},
     loans: [],
+    discovered: [],
+    expeditions: [],
     goalsDone: [],
     today: blankDay(0),
     history: [],
@@ -45,6 +48,7 @@ export function newGame(startCity: string, seed = Date.now() % 2147483647, airli
     negativeDays: 0,
     gameOver: false,
   };
+  updateDiscovery(s, undefined, true);
   const plane = addPlane(s, CONFIG.START_PLANE);
   plane.from = plane.to = startCity;
   log(s, 'info', `Witamy w ${airlineName}`, `Twoja baza to ${city.name}. W hangarze czeka pierwszy samolot.`);

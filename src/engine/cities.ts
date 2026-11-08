@@ -1,3 +1,4 @@
+import { MAX_AIRPORT_LEVEL } from '../data/airportLevels';
 import { CITY_BY_ID } from '../data/cities';
 import { CONFIG, MIN_PER_DAY } from './config';
 import type { Airport, CityDef, GameState } from './types';
@@ -30,8 +31,13 @@ export function startLevel(c: CityDef): number {
 
 /** Najwyższy możliwy poziom rozbudowy w danym mieście. */
 export function maxLevel(c: CityDef): number {
-  if (c.hub) return 5;
-  return [0, 2, 3, 4, 5][cityTier(c)];
+  if (c.hub) return MAX_AIRPORT_LEVEL;
+  return [0, 2, 4, 6, 7][cityTier(c)];
+}
+
+/** Limit rozbudowy w grze: lotnisko bazowe gracza można zawsze rozbudować do najwyższego poziomu. */
+export function maxLevelFor(s: GameState, cityId: string): number {
+  return cityId === s.startCity ? MAX_AIRPORT_LEVEL : maxLevel(CITY_BY_ID[cityId]);
 }
 
 /** Czas budowy i otwarcia lotniska w dniach gry. */

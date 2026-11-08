@@ -1,5 +1,6 @@
 import { CircleQuestionMark, FastForward, Menu, Moon, Pause, Play, Sun, Sunrise, Sunset } from 'lucide-react';
 import { dayPhase } from '../theme/dayNight';
+import { discoveredPlayable } from '../engine/countries';
 import { CITIES } from '../data/cities';
 import { CONFIG } from '../engine/config';
 import { levelProgress } from '../engine/economy';
@@ -29,6 +30,7 @@ export function TopBar() {
   const all = Object.values(s.airports);
   const cities = all.filter((a) => a.buildEnd === undefined).length;
   const building = all.length - cities;
+  const countries = discoveredPlayable(s);
   const phase = dayPhase(s.time);
   const PhaseIcon = { day: Sun, dusk: Sunset, night: Moon, dawn: Sunrise }[phase];
   const phaseName = { day: 'Dzień', dusk: 'Zmierzch', night: 'Noc', dawn: 'Świt' }[phase];
@@ -59,7 +61,7 @@ export function TopBar() {
           <span className={`stat-sub${building > 0 ? ' tone-accent' : ''}`}>
             {building > 0
               ? `${building} w budowie`
-              : `z ${CITIES.length} · ${s.unlockedRegions.length} ${plural(s.unlockedRegions.length, 'region', 'regiony', 'regionów')}`}
+              : `z ${CITIES.length} · ${countries} ${plural(countries, 'kraj', 'kraje', 'krajów')}`}
           </span>
         </div>
         <div className="stat stat-secondary">

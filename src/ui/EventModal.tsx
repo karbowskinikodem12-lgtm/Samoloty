@@ -4,7 +4,7 @@ import {
 import { useEffect } from 'react';
 import { CITY_BY_ID } from '../data/cities';
 import { REGION_BY_ID } from '../data/regions';
-import { CATEGORY_NAMES, SEVERITY_NAMES } from '../engine/events';
+import { CATEGORY_NAMES, choiceBlocked, SEVERITY_NAMES } from '../engine/events';
 import type { ConsequenceLine, EventCategory, EventInstance } from '../engine/types';
 import { useGame } from '../game/useGame';
 import { clock, dayNumber } from './format';
@@ -55,7 +55,7 @@ export function EventModal() {
     const onKey = (e: KeyboardEvent) => {
       if (ev.choices?.length) {
         const n = Number(e.key);
-        if (n >= 1 && n <= ev.choices.length) {
+        if (n >= 1 && n <= ev.choices.length && !choiceBlocked(s!, ev.choices[n - 1])) {
           e.preventDefault();
           e.stopImmediatePropagation();
           c.resolveEvent(ev.uid, n - 1);
@@ -68,7 +68,7 @@ export function EventModal() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [c, ev]);
+  }, [c, ev, s]);
 
   if (!s || !ev || s.gameOver) return null;
   const Icon = CATEGORY_ICON[ev.category] ?? Globe;
@@ -100,16 +100,20 @@ export function EventModal() {
           <>
             <h3 className="event-subhead">Twoja decyzja</h3>
             <div className="choices">
-              {ev.choices.map((ch, i) => (
-                <button key={i} className="choice" onClick={() => c.resolveEvent(ev.uid, i)}>
+              {ev.choices.map((ch, i) => {
+                const blocked = choiceBlocked(s, ch);
+                return (
+                <button key={i} className="choice" disabled={!!blocked} title={blocked ?? undefined} onClick={() => c.resolveEvent(ev.uid, i)}>
                   <span className="choice-key">{i + 1}</span>
                   <span className="choice-body">
                     <strong>{ch.label}</strong>
                     {ch.description && <span className="choice-desc">{ch.description}</span>}
                     <Consequences lines={ch.lines} />
+                    {blocked && <span className="choice-blocked">{blocked}</span>}
                   </span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : (

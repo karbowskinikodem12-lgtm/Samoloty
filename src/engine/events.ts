@@ -3,12 +3,12 @@ import { CITY_BY_ID } from '../data/cities';
 import { EVENT_BY_ID, EVENTS } from '../data/events';
 import { REGION_BY_ID } from '../data/regions';
 import { addPlane } from './actions';
-import { maxLevel } from './cities';
+import { maxLevelFor } from './cities';
 import { CONFIG } from './config';
 import { regionsInNetwork } from './network';
 import { pickWeighted, random, randRange } from './rng';
 import type {
-  ActiveEvent, Amount, ConsequenceLine, EffectSpec, EventContext, EventDef, EventInstance, GameState, LogKind, Num,
+  ActiveEvent, Amount, ConsequenceLine, EffectSpec, EventChoice, EventContext, EventDef, EventInstance, GameState, LogKind, Num,
   ResolvedEffects, SimSink,
 } from './types';
 import { clamp, log } from './util';
@@ -167,7 +167,7 @@ export function applyEffects(s: GameState, e: ResolvedEffects, title: string, de
   }
   if (e.upgradeAirport) {
     const ap = s.airports[e.upgradeAirport];
-    if (ap && ap.buildEnd === undefined && ap.level < Math.min(5, maxLevel(CITY_BY_ID[ap.cityId]))) ap.level++;
+    if (ap && ap.buildEnd === undefined && ap.level < maxLevelFor(s, ap.cityId)) ap.level++;
   }
   if (e.mods) {
     const { hours, scope, targetId, ...mods } = e.mods;
@@ -294,6 +294,13 @@ export function updateEvents(s: GameState, sink: SimSink): void {
   }
 }
 
+/** Powód, dla którego opcji nie można wybrać (brak środków), albo null. */
+export function choiceBlocked(s: GameState, choice: EventChoice): string | null {
+  const cost = choice.effects.cash ?? 0;
+  if (cost < 0 && s.money + cost < 0) return 'Brakuje środków na tę opcję.';
+  return null;
+}
+
 /** Gracz potwierdza wydarzenie lub wybiera opcję decyzji. */
 export function resolvePendingEvent(s: GameState, uid: number, choiceIndex?: number): boolean {
   const i = s.pendingEvents.findIndex((e) => e.uid === uid);
@@ -302,7 +309,7 @@ export function resolvePendingEvent(s: GameState, uid: number, choiceIndex?: num
   const def = EVENT_BY_ID[inst.defId];
   if (inst.choices?.length) {
     const choice = inst.choices[choiceIndex ?? 0];
-    if (!choice) return false;
+    if (!choice || choiceBlocked(s, choice)) return false;
     // Wartości mogły się zmienić od chwili pokazania (np. stan konta) — stosujemy to, co gracz widział.
     if (def) applyEffects(s, choice.effects, inst.title, def);
     log(s, 'info', `Decyzja: ${choice.label}`, inst.title);

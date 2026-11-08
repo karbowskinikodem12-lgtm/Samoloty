@@ -78,7 +78,7 @@ export const CONFIG = {
   REP_DEMAND_MAX: 1.3,
 
   // Poziomy linii (doświadczenie = dowiezieni pasażerowie)
-  LEVEL_XP: [0, 400, 1_500, 4_000, 9_000, 18_000, 32_000, 55_000, 90_000, 140_000, 210_000, 300_000],
+  LEVEL_XP: [0, 400, 1_500, 4_000, 9_000, 18_000, 32_000, 55_000, 90_000, 140_000, 210_000, 300_000, 420_000, 580_000, 800_000],
   LEVEL_REWARD_PER_LEVEL: 50_000,
 
   // Wydarzenia
@@ -91,6 +91,16 @@ export const CONFIG = {
   MAJOR_EVENT_GAP_H: [50, 84] as [number, number],
   /** Minimalna skala kwot w wydarzeniach (średni dzienny przychód). */
   EVENT_MIN_SCALE: 60_000,
+
+  // Odkrywanie krajów
+  /** Zasięg odkrywania wokół lotniska = BASE + PER_LEVEL × (poziom − 1) km. */
+  DISCOVERY_BASE_KM: 700,
+  DISCOVERY_PER_LEVEL_KM: 260,
+  EXPEDITION_BASE_COST: 40_000,
+  EXPEDITION_COST_PER_KM: 30,
+  EXPEDITION_BASE_DAYS: 0.5,
+  EXPEDITION_KM_PER_DAY: 4_000,
+  MAX_EXPEDITIONS: 2,
 
   /** Po tylu dniach z ujemnym saldem gra się kończy. */
   BANKRUPTCY_DAYS: 3,

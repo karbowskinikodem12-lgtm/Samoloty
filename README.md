@@ -38,6 +38,25 @@ Sterowanie: `Spacja` — pauza, `1` `2` `3` — prędkość, `Esc` — anuluj/za
 | Bankructwo | 3 dni z rzędu z ujemnym saldem |
 | Budowa lotniska | ok. 1,5–3,5 dnia gry, dłużej w większych miastach |
 
+### Lotniska, samoloty i odkrywanie świata
+
+**8 poziomów lotnisk** — od portu lokalnego (2 trasy, terminal na 90 osób) po megahub (15 tras, 1800 osób, popyt ×2,1, obsługa samolotu w 16 min). Najwyższy dostępny poziom zależy od wielkości miasta; lotnisko bazowe można rozbudować do końca.
+
+| Poziom | Nazwa | Trasy | Terminal | Koszt rozbudowy |
+| --- | --- | --- | --- | --- |
+| 1 | Port lokalny | 2 | 90 | — |
+| 2 | Lotnisko regionalne | 3 | 170 | 180 tys. $ |
+| 3 | Lotnisko krajowe | 4 | 290 | 450 tys. $ |
+| 4 | Port międzynarodowy | 6 | 460 | 1,1 mln $ |
+| 5 | Duży port międzynarodowy | 8 | 720 | 2,4 mln $ |
+| 6 | Hub kontynentalny | 10 | 1000 | 4,2 mln $ |
+| 7 | Hub globalny | 12 | 1350 | 6,8 mln $ |
+| 8 | Megahub | 15 | 1800 | 10,5 mln $ |
+
+**14 samolotów** (wszystkie fikcyjne): elektryczny Zephyr E-19 na krótkie trasy, turbośmigłowe T-50 i T-70, regionalne RJ-75 i RJ-100, wąskokadłubowe N-150, N-180 i N-220 LR, szerokokadłubowe W-250, W-300 i W-350 ER, Albatros X-420, superjumbo X-550 (550 miejsc, wymaga hubu kontynentalnego) oraz naddźwiękowy Meteor S-100 (2000 km/h, bilety 2,2× droższe). Kolejne modele odblokowują się z poziomem linii (do poziomu 11).
+
+**Odkrywanie krajów** — na początku znasz tylko kraje w pobliżu bazy; reszta świata jest przykryta mgłą, a miasta w nieodkrytych krajach są ukryte. Kraj odkrywa się sam, gdy któreś z jego miast (albo jego środek) znajdzie się w zasięgu Twojego lotniska: 700 km na poziomie 1 i +260 km na każdy kolejny poziom. Odległe kraje można zbadać misją rozpoznawczą (koszt i czas rosną z odległością, najwyżej 2 misje naraz). Budować lotniska można tylko w odkrytych krajach z licencją regionu. Miasta są przypisywane do krajów automatycznie na podstawie mapy (`engine/countries.ts`), więc nowe miasto nie wymaga konfiguracji. Zakładka **Świat** pokazuje postęp odkryć, najbliższe nieodkryte kraje, trwające misje i licencje regionalne.
+
 ### Wydarzenia
 
 76 typów wydarzeń w 6 kategoriach (gospodarka, inwestorzy, konkurencja, wydarzenia lokalne, sytuacja międzynarodowa, infrastruktura i pogoda), łącznie 208 wariantów tekstu. Cel (miasto lub region z Twojej sieci), wariant i wartości są losowane przy każdym wystąpieniu, a kwoty skalują się do średniego dziennego przychodu linii — oferta inwestora dla małej linii to setki tysięcy, dla dużej miliony.
@@ -59,11 +78,11 @@ Każde miasto ma kategorię wyliczaną z populacji (`engine/cities.ts`), która 
 | Kategoria | Populacja | Lotnisko na start | Maks. poziom |
 | --- | --- | --- | --- |
 | Lotnisko lokalne | < 1 mln | 1 | 2 |
-| Ośrodek regionalny | 1–4 mln | 1 | 3 |
-| Duże miasto | 4–12 mln | 2 | 4 |
-| Metropolia | > 12 mln | 2 | 5 |
+| Ośrodek regionalny | 1–4 mln | 1 | 4 |
+| Duże miasto | 4–12 mln | 2 | 6 |
+| Metropolia | > 12 mln | 2 | 7 |
 
-Porty przesiadkowe (`hub`, np. Dubaj, Frankfurt, Singapur) startują o poziom wyżej i można je rozbudować do 5. Kierunki turystyczne (`tourism`, np. Malediwy, Phuket, Queenstown) przyciągają więcej pasażerów, niż wynika z populacji. Panel miasta pokazuje kategorię, potencjał pasażerów na dobę, poziom infrastruktury, limit rozbudowy i czas budowy — duże miasta dają więcej pasażerów, ale są droższe i dłużej się je buduje.
+Porty przesiadkowe (`hub`, np. Dubaj, Frankfurt, Singapur) startują o poziom wyżej i można je rozbudować do 8. Kierunki turystyczne (`tourism`, np. Malediwy, Phuket, Queenstown) przyciągają więcej pasażerów, niż wynika z populacji. Panel miasta pokazuje kategorię, potencjał pasażerów na dobę, poziom infrastruktury, limit rozbudowy i czas budowy — duże miasta dają więcej pasażerów, ale są droższe i dłużej się je buduje.
 
 ### Dzień i noc
 

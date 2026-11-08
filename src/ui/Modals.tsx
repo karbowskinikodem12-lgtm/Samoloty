@@ -62,6 +62,11 @@ export function HelpModal() {
             Każdy lot kosztuje (paliwo, załoga, opłaty) niezależnie od obłożenia, a samoloty i lotniska mają dzienne koszty utrzymania. Pilnuj obłożenia tras: duży samolot na
             pustej trasie traci pieniądze. Trzy dni z ujemnym saldem oznaczają bankructwo.
           </p>
+          <h3>Odkrywanie krajów</h3>
+          <p>
+            Na początku znasz tylko kraje w pobliżu bazy — reszta świata jest przykryta mgłą. Kraje odkrywają się same w zasięgu Twoich lotnisk, a zasięg rośnie z każdym
+            nowym lotniskiem i rozbudową. Odległe kraje zbadasz misją rozpoznawczą (zakładka Świat). Budować można tylko w odkrytych krajach.
+          </p>
           <h3>Budowa i pora dnia</h3>
           <p>
             Nowe lotnisko powstaje kilka dni gry — postęp widać na mapie i w panelu miasta. Większe miasta mają lepszą infrastrukturę na start i wyższy limit rozbudowy, ale ich

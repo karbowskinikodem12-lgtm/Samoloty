@@ -55,7 +55,7 @@ function arrive(s: GameState, plane: Plane, sink: SimSink): void {
   const route = s.routes[plane.routeId!];
   const at = plane.to;
   const mods = getModifiers(s);
-  const legFare = fare(route.distance) * fareModifier(mods, plane.from) * mods.revenue;
+  const legFare = fare(route.distance) * fareModifier(mods, plane.from) * mods.revenue * (AIRCRAFT_BY_ID[plane.typeId].fareMult ?? 1);
   const net = getNetwork(s);
   let revenue = 0;
   for (const [dest, count] of Object.entries(plane.cargo)) {

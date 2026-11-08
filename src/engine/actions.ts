@@ -5,7 +5,8 @@ import { REGION_BY_ID } from '../data/regions';
 import { CONFIG } from './config';
 import { airportOpenCost, planeResale, regionUnlockInfo, routeOpenCost } from './economy';
 import { cityDistance } from './geo';
-import { buildDays, buildMinutes, isBuilding, maxLevel, startLevel } from './cities';
+import { buildDays, buildMinutes, isBuilding, maxLevelFor, startLevel } from './cities';
+import { countryOfCity, isCityDiscovered, updateDiscovery } from './countries';
 import { routeBetween, routesOf } from './network';
 import { dropUnreachable } from './passengers';
 import type { ActionResult, Airport, GameState, Plane, Route, SimSink } from './types';
@@ -45,6 +46,7 @@ export function checkOpenAirport(s: GameState, cityId: string): string | null {
   if (isBuilding(s.airports[cityId])) return 'Lotnisko jest w budowie.';
   if (s.airports[cityId]) return 'Lotnisko już działa.';
   if (!s.unlockedRegions.includes(city.region)) return `Region ${REGION_BY_ID[city.region].name} jest zablokowany.`;
+  if (!isCityDiscovered(s, cityId)) return `Najpierw odkryj kraj: ${countryOfCity(cityId).name}.`;
   const cost = airportOpenCost(cityId);
   if (s.money < cost) return `Brakuje środków (${money(cost)}).`;
   return null;
@@ -72,6 +74,7 @@ export function updateConstruction(s: GameState, sink?: SimSink): void {
     delete ap.buildStart;
     ap.openedDay = dayOf(s.time);
     log(s, 'good', `Lotnisko ${CITY_BY_ID[ap.cityId].name} otwarte`, 'Połącz je trasą z inną częścią sieci.', sink);
+    updateDiscovery(s, sink);
   }
 }
 
@@ -80,19 +83,20 @@ export function checkUpgradeAirport(s: GameState, cityId: string): string | null
   if (!ap) return 'Najpierw otwórz lotnisko.';
   if (isBuilding(ap)) return 'Lotnisko jest jeszcze w budowie.';
   if (ap.level >= MAX_AIRPORT_LEVEL) return 'Lotnisko ma maksymalny poziom.';
-  if (ap.level >= maxLevel(CITY_BY_ID[cityId])) return 'To najwyższy poziom możliwy w tym mieście.';
+  if (ap.level >= maxLevelFor(s, cityId)) return 'To najwyższy poziom możliwy w tym mieście.';
   const cost = airportLevel(ap.level + 1).upgradeCost;
   if (s.money < cost) return `Brakuje środków (${money(cost)}).`;
   return null;
 }
 
-export function upgradeAirport(s: GameState, cityId: string): ActionResult {
+export function upgradeAirport(s: GameState, cityId: string, sink?: SimSink): ActionResult {
   const err = checkUpgradeAirport(s, cityId);
   if (err) return fail(err);
   const ap = s.airports[cityId];
   spend(s, airportLevel(ap.level + 1).upgradeCost);
   ap.level++;
   log(s, 'info', `Rozbudowano lotnisko ${CITY_BY_ID[cityId].name}`, `Poziom ${ap.level}`);
+  updateDiscovery(s, sink);
   return { ok: true };
 }
 

@@ -10,6 +10,7 @@ export const MAP_DAY = {
   coast: 'rgba(100, 116, 139, 0.30)',
   borders: 'rgba(100, 116, 139, 0.20)',
   graticule: 'rgba(100, 116, 139, 0.06)',
+  fog: 'rgba(232, 237, 242, 0.74)',
 
   accent: '#2f6fed',
   cityLocked: 'rgba(100, 116, 139, 0.28)',
@@ -60,6 +61,7 @@ export const MAP_NIGHT: MapPalette = {
   coast: 'rgba(148, 163, 184, 0.20)',
   borders: 'rgba(148, 163, 184, 0.11)',
   graticule: 'rgba(148, 163, 184, 0.04)',
+  fog: 'rgba(12, 18, 27, 0.72)',
 
   accent: '#6f9dff',
   cityLocked: 'rgba(148, 163, 184, 0.22)',
@@ -113,6 +115,7 @@ export const MAP_DUSK: MapPalette = {
   coast: 'rgba(71, 85, 105, 0.32)',
   borders: 'rgba(71, 85, 105, 0.22)',
   graticule: 'rgba(71, 85, 105, 0.07)',
+  fog: 'rgba(174, 185, 200, 0.72)',
   cityAvailableFill: '#e4e9ef',
   halo: '#dde3ea',
   labelHalo: 'rgba(208, 216, 226, 0.95)',
@@ -128,6 +131,7 @@ export const MAP_EVENING: MapPalette = {
   land: '#323e55',
   coast: 'rgba(148, 163, 184, 0.24)',
   borders: 'rgba(148, 163, 184, 0.14)',
+  fog: 'rgba(36, 48, 70, 0.72)',
   cityAvailableFill: '#323e55',
   halo: '#323e55',
   labelHalo: 'rgba(36, 48, 70, 0.92)',
