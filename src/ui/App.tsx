@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGame } from '../game/useGame';
 import { MapRenderer } from '../render/MapRenderer';
+import { EventModal } from './EventModal';
 import { GameOverModal, HelpModal, MenuModal } from './Modals';
 import { Legend, Toasts, TutorialHint, ZoomControls } from './Overlays';
 import { SidePanel } from './SidePanel';
@@ -22,7 +23,7 @@ export function App() {
   // Skróty klawiaturowe
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!c.state || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (!c.state || c.eventOpen || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       if (e.code === 'Space') {
         e.preventDefault();
         c.togglePause();
@@ -56,11 +57,12 @@ export function App() {
                 Wskaż lotnisko docelowe <kbd>Esc</kbd> anuluje
               </div>
             )}
-            {c.paused && !c.state!.gameOver && !c.helpOpen && !c.menuOpen && <div className="paused-badge">Pauza</div>}
+            {c.paused && !c.state!.gameOver && !c.helpOpen && !c.menuOpen && !c.eventOpen && <div className="paused-badge">Pauza</div>}
           </div>
           <Toasts />
           <ZoomControls onZoom={(f) => rendererRef.current?.zoomBy(f)} />
           <Legend />
+          <EventModal />
           <HelpModal />
           <MenuModal />
           <GameOverModal />

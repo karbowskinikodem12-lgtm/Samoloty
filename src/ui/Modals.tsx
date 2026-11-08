@@ -68,7 +68,11 @@ export function HelpModal() {
             budowa trwa dłużej i kosztuje więcej. Po zmroku mapa i interfejs przechodzą w ciemny motyw (można to zmienić w menu).
           </p>
           <h3>Wydarzenia</h3>
-          <p>Festiwale, burze, strajki czy zmiany cen paliwa czasowo zmieniają popyt i koszty. Aktywne wydarzenia znajdziesz w zakładce Przegląd.</p>
+          <p>
+            Gospodarka, inwestorzy, konkurencja, wydarzenia lokalne, polityka i pogoda zmieniają popyt, ceny, koszty i pracę lotnisk. Drobne wydarzenia pojawiają się w rogu
+            ekranu, ważne — na środku, z zatrzymanym czasem. Przy decyzjach każda opcja ma inne konsekwencje (klawisze 1–3). Aktywne wydarzenia i kredyty znajdziesz w zakładce
+            Przegląd.
+          </p>
         </section>
         <section>
           <h3>Sterowanie</h3>

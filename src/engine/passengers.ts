@@ -3,7 +3,7 @@ import { CITY_BY_ID } from '../data/cities';
 import { attraction, destinationWeight } from './cities';
 import { CONFIG } from './config';
 import { marketGrowth, reputationFactor } from './economy';
-import { demandModifier, getModifiers } from './events';
+import { demandModifier, getModifiers } from './modifiers';
 import { getNetwork } from './network';
 import { random } from './rng';
 import type { GameState } from './types';

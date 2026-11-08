@@ -56,38 +56,145 @@ export interface AirportLevelDef {
   upgradeCost: number;
 }
 
-/** Modyfikatory, jakie może nałożyć wydarzenie na cel (miasto, region lub cały świat). */
-export interface EventEffects {
-  /** Mnożnik popytu w mieście / regionie / globalnie. */
-  demand?: number;
-  /** Mnożnik kosztów lotów (globalnie). */
-  fuel?: number;
-  /** Mnożnik cen biletów (globalnie). */
-  fare?: number;
-  /** Lotnisko zamknięte — samoloty nie startują z niego ani do niego. */
-  closed?: boolean;
-  /** Jednorazowa zmiana środków (może zależeć od stanu). */
-  cash?: number | ((s: GameState) => number);
-  /** Jednorazowa zmiana reputacji. */
-  reputation?: number;
-}
+// ---------- Wydarzenia ----------
 
 export type EventTarget = 'city' | 'region' | 'global';
 export type Tone = 'good' | 'bad' | 'neutral';
+export type EventCategory = 'economy' | 'investors' | 'competition' | 'local' | 'international' | 'infrastructure';
+/** minor — powiadomienie w rogu; major — panel na środku ekranu; critical — panel na środku, najwyższa ważność. */
+export type Severity = 'minor' | 'major' | 'critical';
+
+/** Liczba albo przedział [min, max], z którego losowana jest wartość. */
+export type Num = number | [number, number];
+
+/** Kontekst wyliczania kwot wydarzenia. */
+export interface EventContext {
+  targetId: string | null;
+  /** Skala gospodarki gracza: średni dzienny przychód z ostatnich dni (min. 60 tys. $). */
+  scale: number;
+}
+
+/** Kwota stała, przedział albo funkcja stanu gry. */
+export type Amount = Num | ((s: GameState, ctx: EventContext) => number);
+
+/**
+ * Deklaratywny opis skutków wydarzenia albo jednej z decyzji.
+ * Pola natychmiastowe działają od razu, pola modyfikatorów — przez `hours` godzin gry.
+ */
+export interface EffectSpec {
+  // natychmiastowe
+  cash?: Amount;
+  reputation?: Num;
+  /** Kredyt: kwota wypłacana od razu, spłacana w ratach dziennych z odsetkami `rate` (np. 0.2 = 20%). */
+  loan?: { amount: Amount; days: number; rate: number };
+  /** Umorzenie części pozostałego zadłużenia (0..1). */
+  debtRelief?: number;
+  /** Darmowy samolot w hangarze (id typu). */
+  grantPlane?: string;
+  /** Rozbudowa lotniska będącego celem wydarzenia o jeden poziom. */
+  upgradeAirport?: boolean;
+
+  // czasowe modyfikatory
+  hours?: Num;
+  /** Zakres modyfikatorów (domyślnie zgodny z celem wydarzenia). */
+  scope?: EventTarget;
+  demand?: Num;
+  fare?: Num;
+  fuel?: Num;
+  upkeep?: Num;
+  revenue?: Num;
+  turnaround?: Num;
+  closed?: boolean;
+}
+
+export interface ChoiceDef {
+  label: string;
+  description?: string;
+  effects: EffectSpec;
+}
+
+export interface EventVariant {
+  title: string;
+  /** Opis; {city}, {region}, {country} są podmieniane. */
+  text: string;
+}
 
 export interface EventDef {
   id: string;
-  title: string;
-  /** Szablon opisu; {city}, {region} są podmieniane. */
-  text: string;
-  target: EventTarget;
+  category: EventCategory;
+  severity: Severity;
   tone: Tone;
   weight: number;
-  /** Czas trwania w godzinach [min, max]; 0 = wydarzenie natychmiastowe. */
-  duration: [number, number];
-  effects: EventEffects;
-  /** Opcjonalny warunek wystąpienia. */
+  target: EventTarget;
+  variants: EventVariant[];
+  /** Skutki wydarzenia bez wyboru. */
+  effects?: EffectSpec;
+  /** Opcje decyzji (wydarzenie z wyborem jest zawsze pokazywane na środku ekranu). */
+  choices?: ChoiceDef[];
   condition?: (s: GameState) => boolean;
+  /** Dodatkowy filtr miast-celów (tylko działające lotniska są brane pod uwagę). */
+  cityFilter?: (s: GameState, cityId: string) => boolean;
+  /** Minimalny odstęp (godziny gry) przed ponownym wystąpieniem. Domyślnie 72. */
+  cooldownH?: number;
+}
+
+/** Modyfikatory aktywne przez określony czas. */
+export interface ModifierSet {
+  demand?: number;
+  fare?: number;
+  fuel?: number;
+  upkeep?: number;
+  revenue?: number;
+  turnaround?: number;
+  closed?: boolean;
+}
+
+/** Skutki wydarzenia po wylosowaniu konkretnych wartości. */
+export interface ResolvedEffects {
+  cash?: number;
+  reputation?: number;
+  loan?: { amount: number; perDay: number; days: number };
+  debtRelief?: number;
+  grantPlane?: string;
+  upgradeAirport?: string;
+  mods?: ModifierSet & { hours: number; scope: EventTarget; targetId: string | null };
+}
+
+export interface ConsequenceLine {
+  text: string;
+  tone: Tone;
+}
+
+export interface EventChoice {
+  label: string;
+  description?: string;
+  effects: ResolvedEffects;
+  lines: ConsequenceLine[];
+}
+
+/** Konkretne wystąpienie wydarzenia (zapisywane w stanie, dopóki gracz go nie potwierdzi). */
+export interface EventInstance {
+  uid: number;
+  defId: string;
+  category: EventCategory;
+  severity: Severity;
+  tone: Tone;
+  title: string;
+  text: string;
+  targetId: string | null;
+  target: EventTarget;
+  time: number;
+  /** Skutki już zastosowane (wydarzenia bez wyboru). */
+  effects?: ResolvedEffects;
+  lines?: ConsequenceLine[];
+  choices?: EventChoice[];
+}
+
+export interface Loan {
+  id: number;
+  title: string;
+  perDay: number;
+  daysLeft: number;
 }
 
 export interface GoalDef {
@@ -168,9 +275,14 @@ export interface Plane {
 export interface ActiveEvent {
   uid: number;
   defId: string;
+  title: string;
+  tone: Tone;
+  category: EventCategory;
   targetId: string | null;
+  scope: EventTarget;
   start: number;
   end: number;
+  mods: ModifierSet;
 }
 
 export interface DayStats {
@@ -181,6 +293,8 @@ export interface DayStats {
   airportUpkeep: number;
   /** Jednorazowe wpływy (nagrody, dotacje). */
   bonus: number;
+  /** Raty kredytów i inne płatności finansowe. */
+  financing?: number;
   /** Inwestycje (zakupy, rozbudowy). */
   investment: number;
   pax: number;
@@ -222,6 +336,13 @@ export interface GameState {
   eventRev: number;
   events: ActiveEvent[];
   nextEventAt: number;
+  /** Wydarzenia czekające na potwierdzenie lub decyzję gracza (panel na środku ekranu). */
+  pendingEvents: EventInstance[];
+  /** Najwcześniejszy moment kolejnego ważnego wydarzenia. */
+  nextMajorAt: number;
+  /** Czas, do którego dane wydarzenie nie może się powtórzyć. */
+  eventCooldowns: Record<string, number>;
+  loans: Loan[];
   goalsDone: string[];
   today: DayStats;
   history: DayStats[];

@@ -38,6 +38,20 @@ Sterowanie: `Spacja` — pauza, `1` `2` `3` — prędkość, `Esc` — anuluj/za
 | Bankructwo | 3 dni z rzędu z ujemnym saldem |
 | Budowa lotniska | ok. 1,5–3,5 dnia gry, dłużej w większych miastach |
 
+### Wydarzenia
+
+76 typów wydarzeń w 6 kategoriach (gospodarka, inwestorzy, konkurencja, wydarzenia lokalne, sytuacja międzynarodowa, infrastruktura i pogoda), łącznie 208 wariantów tekstu. Cel (miasto lub region z Twojej sieci), wariant i wartości są losowane przy każdym wystąpieniu, a kwoty skalują się do średniego dziennego przychodu linii — oferta inwestora dla małej linii to setki tysięcy, dla dużej miliony.
+
+| Ważność | Jak się pojawia | Przykłady |
+| --- | --- | --- |
+| Drobne (42) | powiadomienie w rogu, skutki od razu | festiwal, burza, tańsze paliwo, wojna cenowa |
+| Ważne (29) | panel na środku ekranu, czas zatrzymany | oferta inwestora, kredyt, nowa linia konkurencji, igrzyska, modernizacja terminalu |
+| Krytyczne (5) | panel na środku z czerwonym oznaczeniem | światowa recesja, konflikt zbrojny, embargo naftowe, erupcja wulkanu, wrogie przejęcie |
+
+29 wydarzeń wymaga decyzji — każda opcja ma inne, policzone konsekwencje widoczne przed wyborem (klawisze 1–3). Skutki mogą być natychmiastowe (gotówka, reputacja, kredyt z ratami, umorzenie długu, darmowy samolot, rozbudowa lotniska) albo czasowe (popyt w mieście/regionie/świecie, ceny biletów, koszty paliwa, koszty utrzymania, udział inwestora w przychodach, czas obsługi samolotów, zamknięcie lotniska lub całego regionu). Ważne wydarzenia pojawiają się najwyżej co 2–3,5 dnia gry, żeby nie przerywać rozgrywki zbyt często.
+
+Kod: katalog `src/data/events.ts`, silnik `src/engine/events.ts`, agregacja modyfikatorów `src/engine/modifiers.ts`, panel `src/ui/EventModal.tsx`.
+
 ### Miasta
 
 Każde miasto ma kategorię wyliczaną z populacji (`engine/cities.ts`), która decyduje o jego roli:
@@ -102,8 +116,8 @@ Zasada: **silnik nie wie nic o UI**. Kontroler wywołuje `advance(state, minuty)
 - **Nowe miasto** — dopisz wpis w `src/data/cities.ts` (opcjonalnie `hub: true` albo `tourism: 2`). Kategoria, infrastruktura, czas budowy, popyt, koszty i odległości liczą się automatycznie.
 - **Nowy region** — wpis w `src/data/regions.ts` + miasta z tym `region`. Ewentualnie dodaj kolejny próg w `CONFIG.REGION_UNLOCK`.
 - **Nowy samolot** — wpis w `src/data/aircraft.ts` (pojawi się w katalogu, panelach tras i zakupach).
-- **Nowe wydarzenie** — obiekt w `src/data/events.ts`: cel (`city` / `region` / `global`), czas trwania i efekty (`demand`, `fuel`, `fare`, `closed`, `cash`, `reputation`).
-- **Nowy rodzaj efektu wydarzenia** — pole w `EventEffects` (`engine/types.ts`), agregacja w `getModifiers()` (`engine/events.ts`) i użycie w odpowiednim module silnika.
+- **Nowe wydarzenie** — obiekt w `src/data/events.ts`: kategoria, ważność, cel (`city` / `region` / `global`), warianty tekstu oraz `effects` albo `choices` (każda opcja z własnymi `effects`). Wartości można podać jako przedział `[min, max]`, a kwoty jako `scaled(min, max)` — wielokrotność dziennego przychodu.
+- **Nowy rodzaj skutku** — pole w `EffectSpec` (`engine/types.ts`), obsługa w `resolveEffects` / `describeEffects` / `applyEffects` (`engine/events.ts`), a dla skutków czasowych agregacja w `engine/modifiers.ts`.
 - **Nowy cel** — wpis w `src/data/goals.ts` z funkcją `progress(state)`.
 - **Nowa mechanika** — pole w `GameState`, krok w `simulation.ts`, akcja w `actions.ts` (para `checkX` / `x`), panel w `ui/panels`. Po zmianie formatu zapisu podbij `SAVE_VERSION` w `engine/setup.ts`.
 - **Balans** — `engine/config.ts`, potem `npm run balance` i lektura `balance-report.txt`.

@@ -1,7 +1,7 @@
 import { AIRCRAFT_BY_ID } from '../data/aircraft';
 import { airportLevel } from '../data/airportLevels';
 import { fare, flightCost, flightMinutes } from './economy';
-import { getModifiers } from './events';
+import { fareModifier, getModifiers, turnaroundModifier } from './modifiers';
 import { getNetwork } from './network';
 import { addWaiting, losePassengers } from './passengers';
 import type { GameState, Plane, SimSink } from './types';
@@ -55,7 +55,7 @@ function arrive(s: GameState, plane: Plane, sink: SimSink): void {
   const route = s.routes[plane.routeId!];
   const at = plane.to;
   const mods = getModifiers(s);
-  const legFare = fare(route.distance) * mods.fare;
+  const legFare = fare(route.distance) * fareModifier(mods, plane.from) * mods.revenue;
   const net = getNetwork(s);
   let revenue = 0;
   for (const [dest, count] of Object.entries(plane.cargo)) {
@@ -91,7 +91,7 @@ function arrive(s: GameState, plane: Plane, sink: SimSink): void {
   plane.to = at === route.a ? route.b : route.a;
   plane.status = 'boarding';
   plane.progress = 0;
-  plane.timer = airportLevel(s.airports[at]?.level ?? 1).turnaround;
+  plane.timer = airportLevel(s.airports[at]?.level ?? 1).turnaround * turnaroundModifier(mods, at);
 }
 
 /** Przesuwa wszystkie samoloty o `dt` minut. */

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CITIES, CITY_BY_ID, START_CITIES } from '../src/data/cities';
-import { EVENTS } from '../src/data/events';
 import { REGIONS } from '../src/data/regions';
 import {
   assignPlane, buyPlane, checkOpenRoute, checkUpgradeAirport, closeRoute, openAirport, openRoute, sellPlane, unassignPlane, upgradeAirport,
@@ -8,7 +7,7 @@ import {
 import { buildMinutes, cityTier, maxLevel, startLevel } from '../src/engine/cities';
 import { finishConstruction, openAirportNow } from './helpers';
 import { CONFIG, MIN_PER_DAY } from '../src/engine/config';
-import { getModifiers, triggerRandomEvent } from '../src/engine/events';
+import { getModifiers } from '../src/engine/events';
 import { cityDistance } from '../src/engine/geo';
 import { getNetwork } from '../src/engine/network';
 import { newGame } from '../src/engine/setup';
@@ -177,25 +176,12 @@ describe('symulacja', () => {
 
   it('zamknięte lotnisko wstrzymuje starty', () => {
     const { s, plane } = basicGame();
-    s.events.push({ uid: 1, defId: 'strike', targetId: 'warsaw', start: s.time, end: s.time + 600 });
+    s.events.push({ uid: 1, defId: 'test', title: 'Strajk', tone: 'bad', category: 'infrastructure', targetId: 'warsaw', scope: 'city', start: s.time, end: s.time + 600, mods: { closed: true } });
     s.eventRev++;
     expect(getModifiers(s).closed.has('warsaw')).toBe(true);
     advance(s, 300);
     expect(plane.status).toBe('boarding');
     expect(plane.flights).toBe(0);
-  });
-
-  it('wszystkie wydarzenia można wywołać', () => {
-    for (const ev of EVENTS) {
-      const { s } = basicGame();
-      s.level = 5;
-      s.totals.flights = 100;
-      for (let i = 0; i < 3; i++) buyPlane(s, 't70');
-      openAirportNow(s, 'prague');
-      const sink = emptySink();
-      triggerRandomEvent(s, sink, ev.id);
-      expect(sink.notices.length, ev.id).toBe(1);
-    }
   });
 
   it('długotrwałe ujemne saldo kończy grę', () => {

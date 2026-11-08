@@ -1,12 +1,11 @@
 import { CircleCheck, Target } from 'lucide-react';
-import { EVENT_BY_ID } from '../../data/events';
 import { dailyFixedCosts } from '../../engine/economy';
-import { describeEvent, eventTargetName } from '../../engine/events';
+import { CATEGORY_NAMES, describeActive, totalDebt } from '../../engine/events';
 import { activeGoals } from '../../engine/progression';
 import type { DayStats } from '../../engine/types';
 import { useGame } from '../../game/useGame';
 import { Bars, Empty, KV, Meter, Pill, Section } from '../common';
-import { clock, dayNumber, hoursLeft, km, money, num } from '../format';
+import { clock, dayNumber, km, money, num } from '../format';
 
 export const operatingProfit = (d: DayStats) => d.revenue - d.flightCost - d.planeUpkeep - d.airportUpkeep;
 
@@ -61,6 +60,22 @@ export function OverviewPanel() {
         <Bars values={s.history.slice(-20).map(operatingProfit)} />
       </Section>
 
+      {s.loans.length > 0 && (
+        <Section title="Kredyty" aside={`do spłaty ${money(totalDebt(s))}`}>
+          <ul className="list compact">
+            {s.loans.map((l) => (
+              <li key={l.id} className="list-row">
+                <span>{l.title}</span>
+                <span className="num dim">
+                  {money(l.perDay)}/dz. · {l.daysLeft} dni
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="hint">Raty są pobierane o północy, osobno od wyniku operacyjnego.</p>
+        </Section>
+      )}
+
       <Section title="Cele" aside={`${s.goalsDone.length} ukończonych`}>
         {goals.length === 0 ? (
           <Empty>Wszystkie cele ukończone. Gratulacje!</Empty>
@@ -92,19 +107,23 @@ export function OverviewPanel() {
         {s.events.length === 0 ? (
           <Empty>Brak aktywnych wydarzeń.</Empty>
         ) : (
-          s.events.map((e) => {
-            const def = EVENT_BY_ID[e.defId];
-            return (
-              <div key={e.uid} className={`event-card tone-${def.tone}`}>
+          [...s.events]
+            .sort((a, b) => a.end - b.end)
+            .map((e) => (
+              <div key={e.uid} className={`event-card tone-${e.tone}`}>
                 <div className="event-head">
-                  <strong>{def.title}</strong>
-                  <Pill tone={def.tone === 'good' ? 'good' : def.tone === 'bad' ? 'bad' : 'dim'}>{eventTargetName(def, e.targetId)}</Pill>
+                  <strong>{e.title}</strong>
+                  <Pill tone={e.tone === 'good' ? 'good' : e.tone === 'bad' ? 'bad' : 'dim'}>{CATEGORY_NAMES[e.category]}</Pill>
                 </div>
-                <p>{describeEvent(def, e.targetId)}</p>
-                <span className="dim">Pozostało: {hoursLeft(e.end - s.time)}</span>
+                <ul className="consequences compact">
+                  {describeActive(s, e).map((l, i) => (
+                    <li key={i} className={`tone-${l.tone}`}>
+                      {l.text}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            );
-          })
+            ))
         )}
       </Section>
 

@@ -7,7 +7,7 @@ import { log } from './util';
 export const SAVE_VERSION = 1;
 
 export function blankDay(day: number): DayStats {
-  return { day, revenue: 0, flightCost: 0, planeUpkeep: 0, airportUpkeep: 0, bonus: 0, investment: 0, pax: 0, lost: 0 };
+  return { day, revenue: 0, flightCost: 0, planeUpkeep: 0, airportUpkeep: 0, bonus: 0, investment: 0, financing: 0, pax: 0, lost: 0 };
 }
 
 export function newGame(startCity: string, seed = Date.now() % 2147483647, airlineName = 'Contrail'): GameState {
@@ -33,6 +33,10 @@ export function newGame(startCity: string, seed = Date.now() % 2147483647, airli
     eventRev: 0,
     events: [],
     nextEventAt: CONFIG.FIRST_EVENT_H * 60,
+    pendingEvents: [],
+    nextMajorAt: 0,
+    eventCooldowns: {},
+    loans: [],
     goalsDone: [],
     today: blankDay(0),
     history: [],

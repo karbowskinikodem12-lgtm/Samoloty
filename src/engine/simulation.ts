@@ -1,7 +1,7 @@
 import { updateConstruction } from './actions';
 import { CONFIG, MIN_PER_DAY } from './config';
 import { dailyFixedCosts } from './economy';
-import { updateEvents } from './events';
+import { chargeLoans, updateEvents } from './events';
 import { updatePlanes } from './flights';
 import { spawnPassengers, updateReputation } from './passengers';
 import { updateProgression } from './progression';
@@ -41,6 +41,7 @@ function endOfDay(s: GameState, sink: SimSink): void {
   s.money -= fixed.planes + fixed.airports;
   s.today.planeUpkeep += fixed.planes;
   s.today.airportUpkeep += fixed.airports;
+  s.today.financing = (s.today.financing ?? 0) + chargeLoans(s, sink);
 
   s.history.push(s.today);
   if (s.history.length > CONFIG.HISTORY_DAYS) s.history.shift();

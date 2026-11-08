@@ -1,5 +1,6 @@
 import { CONFIG } from '../engine/config';
 import { saveGame } from '../engine/save';
+import { resolvePendingEvent } from '../engine/events';
 import { advance } from '../engine/simulation';
 import type { ActionResult, GameState, LogEntry } from '../engine/types';
 import { emptySink } from '../engine/util';
@@ -202,8 +203,21 @@ export class GameController {
     return this.state ? saveGame(this.state) : false;
   }
 
+  /** Czy na środku ekranu czeka ważne wydarzenie (czas gry jest wtedy wstrzymany). */
+  get eventOpen(): boolean {
+    return !!this.state && this.state.pendingEvents.length > 0;
+  }
+
   get paused(): boolean {
-    return this.speed === 0 || this.helpOpen || this.menuOpen;
+    return this.speed === 0 || this.helpOpen || this.menuOpen || this.eventOpen;
+  }
+
+  /** Potwierdzenie wydarzenia lub wybór opcji decyzji. */
+  resolveEvent(uid: number, choice?: number): void {
+    if (!this.state) return;
+    resolvePendingEvent(this.state, uid, choice);
+    saveGame(this.state);
+    this.notify();
   }
 
   private frame = (now: number) => {
@@ -222,7 +236,7 @@ export class GameController {
         else this.floating.push({ cityId: a.cityId, amount: a.amount, born: now });
       }
       for (const n of sink.notices) this.toast(n);
-      if (sink.notices.length || s.gameOver) changed = true;
+      if (sink.notices.length || s.gameOver || s.pendingEvents.length) changed = true;
       if (now - this.lastSave > 15_000) {
         saveGame(s);
         this.lastSave = now;

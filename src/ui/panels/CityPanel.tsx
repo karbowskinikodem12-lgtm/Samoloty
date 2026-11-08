@@ -3,7 +3,6 @@ import type { CityDef } from '../../engine/types';
 import { buildDays, buildProgress, cityTier, maxLevel, potentialPerDay, startLevel, TIER_NAMES } from '../../engine/cities';
 import { AIRPORT_LEVELS, airportLevel, MAX_AIRPORT_LEVEL } from '../../data/airportLevels';
 import { CITY_BY_ID } from '../../data/cities';
-import { EVENT_BY_ID } from '../../data/events';
 import { REGION_BY_ID } from '../../data/regions';
 import { checkOpenAirport, checkUpgradeAirport, freeSlots, openAirport, planesOnRoute, upgradeAirport } from '../../engine/actions';
 import { airportOpenCost } from '../../engine/economy';
@@ -249,15 +248,12 @@ export function CityPanel({ cityId }: { cityId: string }) {
 
       {events.length > 0 && (
         <Section title="Wydarzenia">
-          {events.map((e) => {
-            const def = EVENT_BY_ID[e.defId];
-            return (
-              <div key={e.uid} className={`event-card tone-${def.tone}`}>
-                <strong>{def.title}</strong>
-                <span className="dim">jeszcze {hoursLeft(e.end - s.time)}</span>
-              </div>
-            );
-          })}
+          {events.map((e) => (
+            <div key={e.uid} className={`event-card tone-${e.tone}`}>
+              <strong>{e.title}</strong>
+              <span className="dim">jeszcze {hoursLeft(e.end - s.time)}</span>
+            </div>
+          ))}
         </Section>
       )}
 

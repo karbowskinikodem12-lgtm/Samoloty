@@ -82,8 +82,15 @@ export const CONFIG = {
   LEVEL_REWARD_PER_LEVEL: 50_000,
 
   // Wydarzenia
-  EVENT_INTERVAL_H: [20, 44] as [number, number],
+  /** Odstęp między kolejnymi wydarzeniami (godziny gry). */
+  EVENT_INTERVAL_H: [12, 26] as [number, number],
   FIRST_EVENT_H: 30,
+  /** Pierwsze ważne wydarzenie (panel na środku ekranu) najwcześniej po tylu godzinach gry. */
+  FIRST_MAJOR_EVENT_H: 44,
+  /** Minimalny odstęp między ważnymi wydarzeniami (godziny gry). */
+  MAJOR_EVENT_GAP_H: [50, 84] as [number, number],
+  /** Minimalna skala kwot w wydarzeniach (średni dzienny przychód). */
+  EVENT_MIN_SCALE: 60_000,
 
   /** Po tylu dniach z ujemnym saldem gra się kończy. */
   BANKRUPTCY_DAYS: 3,

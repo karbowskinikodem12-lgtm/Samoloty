@@ -18,7 +18,7 @@ export function loadGame(): GameState | null {
     if (!raw) return null;
     const s = JSON.parse(raw) as GameState;
     if (s.version !== SAVE_VERSION || s.gameOver) return null;
-    return s;
+    return migrate(s);
   } catch {
     return null;
   }
@@ -34,4 +34,16 @@ export function clearSave(): void {
   } catch {
     /* brak dostępu do localStorage */
   }
+}
+
+/** Uzupełnia zapisy ze starszych wersji gry o nowe pola. */
+export function migrate(s: GameState): GameState {
+  s.pendingEvents ??= [];
+  s.loans ??= [];
+  s.eventCooldowns ??= {};
+  s.nextMajorAt ??= 0;
+  // Stary format aktywnych wydarzeń (bez modyfikatorów) jest odrzucany.
+  s.events = (s.events ?? []).filter((e) => e && typeof e === 'object' && 'mods' in e);
+  s.eventRev = (s.eventRev ?? 0) + 1;
+  return s;
 }

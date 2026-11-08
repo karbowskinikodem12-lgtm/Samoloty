@@ -3,6 +3,7 @@ import { airportLevel } from '../data/airportLevels';
 import { CITY_BY_ID } from '../data/cities';
 import { CONFIG } from './config';
 import { startLevel } from './cities';
+import { getModifiers } from './modifiers';
 import type { AircraftDef, GameState } from './types';
 import { dayOf } from './util';
 
@@ -51,13 +52,14 @@ export function reputationFactor(s: GameState): number {
   return CONFIG.REP_DEMAND_MIN + ((CONFIG.REP_DEMAND_MAX - CONFIG.REP_DEMAND_MIN) * s.reputation) / 100;
 }
 
-/** Dzienne koszty stałe (samoloty + lotniska). */
+/** Dzienne koszty stałe (samoloty + lotniska), z uwzględnieniem wydarzeń (inflacja, podwyżki). */
 export function dailyFixedCosts(s: GameState): { planes: number; airports: number } {
+  const k = getModifiers(s).upkeep;
   let planes = 0;
   for (const p of Object.values(s.planes)) planes += AIRCRAFT_BY_ID[p.typeId].upkeep;
   let airports = 0;
   for (const a of Object.values(s.airports)) if (a.buildEnd === undefined) airports += airportLevel(a.level).upkeep;
-  return { planes, airports };
+  return { planes: Math.round(planes * k), airports: Math.round(airports * k) };
 }
 
 export function levelForXp(xp: number): number {
