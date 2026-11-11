@@ -1,19 +1,19 @@
 import { MIN_PER_DAY } from '../engine/config';
-import { MAP_DAY, MAP_DUSK, MAP_EVENING, MAP_NIGHT, THEME, type MapPalette } from '../render/theme';
-import { CSS_DAY, CSS_DUSK, CSS_EVENING, CSS_NIGHT } from './cssPalette';
+import { MAP_DAY, MAP_NIGHT, THEME, type MapPalette } from '../render/theme';
+import { CSS_DAY, CSS_NIGHT } from './cssPalette';
 
 /**
  * Cykl dnia i nocy.
  *
- * Problem prostego mieszania: gdy tło i tekst zmieniają kolor jednocześnie, w połowie przejścia
- * oba są szare i nic nie widać. Dlatego przejście ma dwie warstwy:
+ * Każde płynne przejście, w którym tło i tekst jednocześnie zamieniają się kolorami (jasne ↔ ciemne),
+ * w pewnym momencie daje szary tekst na szarym tle. Dlatego kolory są podzielone na dwie grupy:
  *
- * 1. „Postęp nocy” p (0..1) wynika z zegara gry i zmienia się powoli przez kilka godzin gry.
- *    Do p = 0,5 obowiązuje jasny motyw, którego tło stopniowo przygasa (dzień → zmierzch);
- *    od p = 0,5 ciemny motyw, który stopniowo się pogłębia (wczesna noc → noc).
- *    W obu połowach tekst ma pełny kontrast z tłem.
- * 2. Zamiana jasnego motywu na ciemny („swap”) odbywa się w czasie rzeczywistym w ok. 1,2 s,
- *    niezależnie od prędkości gry i pauzy — nigdy nie zatrzymuje się w nieczytelnym punkcie.
+ * 1. Tło mapy (morze, ląd, granice, mgła, poświata) — mieszane płynnie przez cały zmierzch/świt
+ *    według „postępu nocy” p (0 = dzień, 1 = noc). To daje długie, łagodne ściemnianie.
+ * 2. Wszystko, co trzeba czytać (nazwy, lotniska, trasy, samoloty, panele interfejsu) — nigdy nie jest
+ *    mieszane. Do połowy przejścia obowiązuje wersja dzienna (ciemne na jasnym), potem nocna (jasne
+ *    na ciemnym). Obwódki nazw i lotnisk są liczone z bieżącego koloru lądu i odcinają tekst od tła
+ *    w każdej chwili. Panele zmieniają motyw krótkim przejściem CSS (ok. 0,3 s).
  */
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
@@ -24,8 +24,9 @@ const DUSK_END = 21 * 60 + 30;
 const DAWN_START = 3 * 60 + 30;
 const DAWN_END = 7 * 60 + 30;
 
-/** Punkt, w którym jasny motyw zamienia się w ciemny. */
-export const SWAP_POINT = 0.5;
+/** Postęp nocy, przy którym czytelne elementy przechodzą z wersji dziennej na nocną (z histerezą). */
+export const SWAP_ON = 0.52;
+export const SWAP_OFF = 0.48;
 
 const smooth = (x: number) => {
   const t = Math.max(0, Math.min(1, x));
@@ -75,46 +76,57 @@ function mix(a: RGBA, b: RGBA, t: number): RGBA {
 
 const css = (c: RGBA) => `rgba(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}, ${c[3].toFixed(3)})`;
 
-/** Cztery etapy palety: dzień, zmierzch (jasny), wczesna noc (ciemny), noc. */
-type Stages = [RGBA, RGBA, RGBA, RGBA];
+/** Klucze mapy mieszane płynnie (tło). Pozostałe przełączane w połowie przejścia. */
+const MAP_BG_KEYS: (keyof MapPalette)[] = ['background', 'ocean', 'land', 'coast', 'borders', 'graticule', 'fog', 'glow'];
+/** Zmienne CSS mieszane płynnie (tło strony za mapą). */
+const CSS_BG_KEYS = ['--map', '--veil'];
 
-const mapStages: [keyof MapPalette, Stages][] = (Object.keys(MAP_DAY) as (keyof MapPalette)[]).map((k) => [
-  k,
-  [parse(MAP_DAY[k]), parse(MAP_DUSK[k]), parse(MAP_EVENING[k]), parse(MAP_NIGHT[k])],
-]);
-const cssStages: [string, Stages][] = Object.keys(CSS_DAY).map((k) => [
-  k,
-  [parse(CSS_DAY[k]), parse(CSS_DUSK[k]), parse(CSS_EVENING[k]), parse(CSS_NIGHT[k])],
-]);
-
-/** Kolor dla postępu nocy `p` i stanu zamiany motywu `swap` (0 = jasny, 1 = ciemny). */
-function blend(st: Stages, p: number, swap: number): RGBA {
-  const light = mix(st[0], st[1], Math.min(1, p / SWAP_POINT));
-  const dark = mix(st[2], st[3], Math.max(0, (p - SWAP_POINT) / (1 - SWAP_POINT)));
-  if (swap <= 0) return light;
-  if (swap >= 1) return dark;
-  return mix(light, dark, smooth(swap));
-}
+const mapPairs = (Object.keys(MAP_DAY) as (keyof MapPalette)[]).map((k) => [k, parse(MAP_DAY[k]), parse(MAP_NIGHT[k])] as const);
+const cssPairs = Object.keys(CSS_DAY).map((k) => [k, parse(CSS_DAY[k]), parse(CSS_NIGHT[k])] as const);
+const WHITE: RGBA = [255, 255, 255, 1];
+const INK: RGBA = [10, 15, 24, 1];
 
 let appliedKey = '';
+let appliedDark: boolean | null = null;
+let animTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Ustawia kolory mapy i interfejsu. */
-export function applyTheme(p: number, swap: number): void {
+/**
+ * Ustawia kolory mapy i interfejsu.
+ * @param p postęp nocy 0..1 (tło mapy)
+ * @param dark czy czytelne elementy są w wersji nocnej
+ */
+export function applyTheme(p: number, dark: boolean): void {
   const pv = Math.round(Math.max(0, Math.min(1, p)) * 500) / 500;
-  const sv = Math.round(Math.max(0, Math.min(1, swap)) * 200) / 200;
-  const key = `${pv}|${sv}`;
+  const key = `${pv}|${dark}`;
   if (key === appliedKey) return;
   appliedKey = key;
-  for (const [k, st] of mapStages) THEME[k] = css(blend(st, pv, sv));
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement.style;
-  for (const [k, st] of cssStages) {
-    const c = blend(st, pv, sv);
-    root.setProperty(k, k === '--shadow-rgb' ? `${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}` : css(c));
+
+  for (const [k, day, night] of mapPairs) {
+    if (MAP_BG_KEYS.includes(k)) THEME[k] = css(mix(day, night, pv));
+    else THEME[k] = css(dark ? night : day);
   }
-  const dark = sv > 0.5;
-  root.setProperty('color-scheme', dark ? 'dark' : 'light');
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  // Obwódki: kolor lądu rozjaśniony (wersja dzienna) albo przyciemniony (nocna) — zawsze kontrastują z tekstem.
+  const land = parse(THEME.land);
+  const halo = dark ? mix(land, INK, 0.45) : mix(land, WHITE, 0.7);
+  THEME.halo = css(halo);
+  THEME.labelHalo = css([halo[0], halo[1], halo[2], 0.94]);
+  THEME.cityAvailableFill = css(halo);
+
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (appliedDark !== null && appliedDark !== dark) {
+    // Krótkie przejście kolorów paneli tylko w chwili zmiany motywu (nie spowalnia zwykłych interakcji).
+    root.classList.add('theme-anim');
+    if (animTimer) clearTimeout(animTimer);
+    animTimer = setTimeout(() => root.classList.remove('theme-anim'), 450);
+  }
+  appliedDark = dark;
+  for (const [k, day, night] of cssPairs) {
+    const c = CSS_BG_KEYS.includes(k) ? mix(day, night, pv) : dark ? night : day;
+    root.style.setProperty(k, k === '--shadow-rgb' ? `${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}` : css(c));
+  }
+  root.style.setProperty('color-scheme', dark ? 'dark' : 'light');
+  root.dataset.theme = dark ? 'dark' : 'light';
 }
 
 /** Kolor z dodaną przezroczystością (działa dla #hex i rgba()). */

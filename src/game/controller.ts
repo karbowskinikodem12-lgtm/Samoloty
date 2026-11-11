@@ -4,7 +4,7 @@ import { resolvePendingEvent } from '../engine/events';
 import { advance } from '../engine/simulation';
 import type { ActionResult, GameState, LogEntry } from '../engine/types';
 import { emptySink } from '../engine/util';
-import { applyTheme, loadThemeMode, nightFactor, saveThemeMode, SWAP_POINT, type ThemeMode } from '../theme/dayNight';
+import { applyTheme, loadThemeMode, nightFactor, saveThemeMode, SWAP_OFF, SWAP_ON, type ThemeMode } from '../theme/dayNight';
 
 export type Selection =
   | { kind: 'city'; id: string }
@@ -45,8 +45,8 @@ export class GameController {
   themeMode: ThemeMode = loadThemeMode();
   /** Postęp nocy 0..1 — płynnie dąży do wartości wynikającej z pory dnia lub trybu. */
   night = 0;
-  /** Zamiana jasnego motywu na ciemny (0..1), animowana w czasie rzeczywistym. */
-  themeSwap = 0;
+  /** Czy czytelne elementy (tekst, panele, lotniska) są w wersji nocnej. */
+  darkUi = false;
   version = 0;
 
   private listeners = new Set<() => void>();
@@ -252,11 +252,10 @@ export class GameController {
     const target = this.nightTarget;
     this.night += (target - this.night) * Math.min(1, dtReal * 1.2);
     if (Math.abs(target - this.night) < 0.001) this.night = target;
-    // Zamiana jasny ↔ ciemny trwa ok. 1,2 s czasu rzeczywistego, niezależnie od prędkości i pauzy.
-    const swapTarget = this.night >= SWAP_POINT ? 1 : 0;
-    const step = dtReal / 1.2;
-    this.themeSwap = swapTarget > this.themeSwap ? Math.min(swapTarget, this.themeSwap + step) : Math.max(swapTarget, this.themeSwap - step);
-    applyTheme(this.night, this.themeSwap);
+    // Czytelne elementy przełączają się w połowie przejścia (z histerezą, żeby nie migotały).
+    if (!this.darkUi && this.night >= SWAP_ON) this.darkUi = true;
+    else if (this.darkUi && this.night <= SWAP_OFF) this.darkUi = false;
+    applyTheme(this.night, this.darkUi);
 
     for (const hook of this.frameHooks) hook(now);
 

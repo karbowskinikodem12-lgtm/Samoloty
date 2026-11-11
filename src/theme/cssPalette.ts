@@ -59,27 +59,3 @@ export const CSS_NIGHT: Record<string, string> = {
   '--shadow-rgb': '0, 0, 0',
   '--veil': 'rgba(12, 18, 27, 0.35)',
 };
-
-/** Zmierzch: przygaszony jasny interfejs (ciemny tekst pozostaje czytelny). */
-export const CSS_DUSK: Record<string, string> = {
-  ...CSS_DAY,
-  '--map': '#aeb9c8',
-  '--surface': '#e9edf2',
-  '--surface-2': '#dfe4eb',
-  '--surface-hover': '#d6dce5',
-  '--line': '#cdd4de',
-  '--line-strong': '#bcc5d1',
-  '--veil': 'rgba(174, 185, 200, 0.35)',
-};
-
-/** Wczesna noc: lżejszy ciemny interfejs, który potem przechodzi w pełną noc. */
-export const CSS_EVENING: Record<string, string> = {
-  ...CSS_NIGHT,
-  '--map': '#243046',
-  '--surface': '#253044',
-  '--surface-2': '#2c384d',
-  '--surface-hover': '#334057',
-  '--line': '#38455c',
-  '--line-strong': '#46546c',
-  '--veil': 'rgba(36, 48, 70, 0.35)',
-};
